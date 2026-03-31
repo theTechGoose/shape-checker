@@ -7,6 +7,8 @@ const LSP_CONFIG = {
   initializationOptions: { enable: true },
 };
 
+const TEST_FILE = "src/core/business/classify/mod.ts";
+
 Deno.test({
   name: "Lsp — negotiates capabilities",
   ignore: Deno.env.get("CI") === "true",
@@ -25,16 +27,15 @@ Deno.test({
 });
 
 Deno.test({
-  name: "Lsp — get export types from a file",
+  name: "Lsp — get export types",
   ignore: Deno.env.get("CI") === "true",
   async fn() {
     const lsp = new Lsp(Deno.cwd(), LSP_CONFIG);
     await lsp.initialize();
     try {
-      const exports = await lsp.getExportTypes("src/core/business/classify/mod.ts");
+      const exports = await lsp.getExportTypes(TEST_FILE);
       assert(exports.length > 0, "should find exports");
-      const names = exports.map((e) => e.name);
-      assert(names.includes("classifyFile"), "should find classifyFile export");
+      assert(exports.some((e) => e.name === "classifyFile"));
     } finally {
       await lsp.shutdown();
     }
@@ -42,16 +43,15 @@ Deno.test({
 });
 
 Deno.test({
-  name: "Lsp — hover returns type info",
+  name: "Lsp — getSymbolType returns type signature",
   ignore: Deno.env.get("CI") === "true",
   async fn() {
     const lsp = new Lsp(Deno.cwd(), LSP_CONFIG);
     await lsp.initialize();
     try {
-      // classifyFile is exported at line 10 (0-indexed), around character 16
-      const result = await lsp.hover("src/core/business/classify/mod.ts", 10, 16);
-      assert(result !== null, "should return hover info");
-      assert(result!.contents.length > 0, "should have content");
+      const type = await lsp.getSymbolType(TEST_FILE, "classifyFile");
+      assert(type !== null, "should return type info");
+      assert(type!.includes("Classification"), "should mention return type");
     } finally {
       await lsp.shutdown();
     }
@@ -59,15 +59,14 @@ Deno.test({
 });
 
 Deno.test({
-  name: "Lsp — find references",
+  name: "Lsp — getSymbolType returns null for unknown symbol",
   ignore: Deno.env.get("CI") === "true",
   async fn() {
     const lsp = new Lsp(Deno.cwd(), LSP_CONFIG);
     await lsp.initialize();
     try {
-      // LAYERS constant at line 0, character 6
-      const refs = await lsp.findReferences("src/core/business/classify/mod.ts", 0, 6);
-      assert(refs.length >= 0, "should return references array");
+      const type = await lsp.getSymbolType(TEST_FILE, "doesNotExist");
+      assertEquals(type, null);
     } finally {
       await lsp.shutdown();
     }
@@ -75,14 +74,14 @@ Deno.test({
 });
 
 Deno.test({
-  name: "Lsp — go to definition",
+  name: "Lsp — findSymbolReferences",
   ignore: Deno.env.get("CI") === "true",
   async fn() {
     const lsp = new Lsp(Deno.cwd(), LSP_CONFIG);
     await lsp.initialize();
     try {
-      const defs = await lsp.goToDefinition("src/core/business/classify/mod.ts", 10, 16);
-      assert(defs.length >= 0, "should return definitions array");
+      const refs = await lsp.findSymbolReferences(TEST_FILE, "classifyFile");
+      assert(Array.isArray(refs), "should return array");
     } finally {
       await lsp.shutdown();
     }
@@ -90,23 +89,30 @@ Deno.test({
 });
 
 Deno.test({
-  name: "Lsp — graceful fallback when capability missing",
+  name: "Lsp — findSymbolDefinition",
   ignore: Deno.env.get("CI") === "true",
   async fn() {
-    // Fake config with no init options — capabilities may differ
-    // but the class should never throw, just return empty
     const lsp = new Lsp(Deno.cwd(), LSP_CONFIG);
-    // Don't initialize — capabilities all false
+    await lsp.initialize();
+    try {
+      const defs = await lsp.findSymbolDefinition(TEST_FILE, "classifyFile");
+      assert(Array.isArray(defs), "should return array");
+    } finally {
+      await lsp.shutdown();
+    }
+  },
+});
+
+Deno.test({
+  name: "Lsp — graceful fallback when not initialized",
+  async fn() {
+    const lsp = new Lsp(Deno.cwd(), LSP_CONFIG);
+    // No initialize — all capabilities false
     assertEquals(lsp.capabilities.hover, false);
-    const result = await lsp.hover("src/core/business/classify/mod.ts", 0, 0);
-    assertEquals(result, null);
-    const refs = await lsp.findReferences("src/core/business/classify/mod.ts", 0, 0);
-    assertEquals(refs.length, 0);
-    const impls = await lsp.findImplementations("src/core/business/classify/mod.ts", 0, 0);
-    assertEquals(impls.length, 0);
-    const defs = await lsp.goToDefinition("src/core/business/classify/mod.ts", 0, 0);
-    assertEquals(defs.length, 0);
-    const diags = await lsp.getDiagnostics("src/core/business/classify/mod.ts");
-    assertEquals(diags.length, 0);
+    assertEquals(await lsp.getSymbolType(TEST_FILE, "classifyFile"), null);
+    assertEquals((await lsp.findSymbolReferences(TEST_FILE, "classifyFile")).length, 0);
+    assertEquals((await lsp.findSymbolImplementations(TEST_FILE, "classifyFile")).length, 0);
+    assertEquals((await lsp.findSymbolDefinition(TEST_FILE, "classifyFile")).length, 0);
+    assertEquals((await lsp.getDiagnostics(TEST_FILE)).length, 0);
   },
 });

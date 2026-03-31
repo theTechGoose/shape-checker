@@ -1,7 +1,6 @@
 import { join } from "jsr:@std/path";
 import type {
   ExportInfo,
-  HoverResult,
   Location,
   Diagnostic,
   LspConfig,
@@ -10,6 +9,14 @@ import type {
 
 // deno-lint-ignore no-explicit-any
 type ServerCapabilities = Record<string, any>;
+
+interface SymbolInfo {
+  name: string;
+  kind: number;
+  detail?: string;
+  range: { start: { line: number; character: number }; end: { line: number; character: number } };
+  selectionRange: { start: { line: number; character: number }; end: { line: number; character: number } };
+}
 
 export class Lsp {
   private process: Deno.ChildProcess | null = null;
@@ -76,17 +83,15 @@ export class Lsp {
   private async openDoc(relPath: string): Promise<{ uri: string; content: string }> {
     const absPath = join(this.projectRoot, relPath);
     const uri = `file://${absPath}`;
+    const content = await Deno.readTextFile(absPath);
 
     if (!this.openDocs.has(uri)) {
-      const content = await Deno.readTextFile(absPath);
       await this.notify("textDocument/didOpen", {
         textDocument: { uri, languageId: "typescript", version: 1, text: content },
       });
       this.openDocs.add(uri);
-      return { uri, content };
     }
 
-    const content = await Deno.readTextFile(absPath);
     return { uri, content };
   }
 
@@ -97,20 +102,40 @@ export class Lsp {
     }
   }
 
-  // -- Capabilities --
+  // -- Symbol resolution --
 
-  async getExportTypes(relPath: string): Promise<ExportInfo[]> {
-    if (!this.capabilities.documentSymbol) return [];
-
+  private async getSymbols(relPath: string): Promise<{ symbols: SymbolInfo[]; uri: string; content: string }> {
     const { uri, content } = await this.openDoc(relPath);
+
+    if (!this.capabilities.documentSymbol) return { symbols: [], uri, content };
 
     const symbols = await this.request("textDocument/documentSymbol", {
       textDocument: { uri },
-    }) as Array<{ name: string; kind: number; detail?: string }> | null;
+    }) as SymbolInfo[] | null;
 
-    await this.closeDoc(uri);
+    return { symbols: symbols ?? [], uri, content };
+  }
 
-    if (!symbols || !Array.isArray(symbols)) return [];
+  private async findSymbolPosition(
+    relPath: string,
+    symbolName: string,
+  ): Promise<{ uri: string; line: number; character: number } | null> {
+    const { symbols, uri } = await this.getSymbols(relPath);
+
+    const sym = symbols.find((s) => s.name === symbolName);
+    if (!sym) return null;
+
+    const pos = sym.selectionRange?.start ?? sym.range?.start;
+    if (!pos) return null;
+
+    return { uri, line: pos.line, character: pos.character };
+  }
+
+  // -- Public API (symbol-based) --
+
+  async getExportTypes(relPath: string): Promise<ExportInfo[]> {
+    const { symbols, content } = await this.getSymbols(relPath);
+    if (symbols.length === 0) return [];
 
     const exports: ExportInfo[] = [];
     const lines = content.split("\n");
@@ -128,6 +153,8 @@ export class Lsp {
       }
     }
 
+    const { uri } = await this.openDoc(relPath);
+    await this.closeDoc(uri);
     return exports;
   }
 
@@ -148,49 +175,45 @@ export class Lsp {
     return result;
   }
 
-  async hover(relPath: string, line: number, character: number): Promise<HoverResult | null> {
+  async getSymbolType(relPath: string, symbolName: string): Promise<string | null> {
     if (!this.capabilities.hover) return null;
 
-    const { uri } = await this.openDoc(relPath);
+    const pos = await this.findSymbolPosition(relPath, symbolName);
+    if (!pos) return null;
 
     const result = await this.request("textDocument/hover", {
-      textDocument: { uri },
-      position: { line, character },
+      textDocument: { uri: pos.uri },
+      position: { line: pos.line, character: pos.character },
     // deno-lint-ignore no-explicit-any
     }) as any | null;
 
-    await this.closeDoc(uri);
+    await this.closeDoc(pos.uri);
 
     if (!result?.contents) return null;
 
-    let contents: string;
-    if (typeof result.contents === "string") {
-      contents = result.contents;
-    } else if (result.contents.value) {
-      contents = result.contents.value;
-    } else if (Array.isArray(result.contents)) {
-      contents = result.contents.map((c: string | { value: string }) =>
-        typeof c === "string" ? c : c.value
-      ).join("\n");
-    } else {
-      contents = JSON.stringify(result.contents);
+    if (typeof result.contents === "string") return result.contents;
+    if (result.contents.value) return result.contents.value;
+    if (Array.isArray(result.contents)) {
+      return result.contents
+        .map((c: string | { value: string }) => typeof c === "string" ? c : c.value)
+        .join("\n");
     }
-
-    return { contents, line, character };
+    return null;
   }
 
-  async findReferences(relPath: string, line: number, character: number): Promise<Location[]> {
+  async findSymbolReferences(relPath: string, symbolName: string): Promise<Location[]> {
     if (!this.capabilities.references) return [];
 
-    const { uri } = await this.openDoc(relPath);
+    const pos = await this.findSymbolPosition(relPath, symbolName);
+    if (!pos) return [];
 
     const result = await this.request("textDocument/references", {
-      textDocument: { uri },
-      position: { line, character },
+      textDocument: { uri: pos.uri },
+      position: { line: pos.line, character: pos.character },
       context: { includeDeclaration: false },
     }) as Array<{ uri: string; range: { start: { line: number; character: number } } }> | null;
 
-    await this.closeDoc(uri);
+    await this.closeDoc(pos.uri);
 
     if (!result || !Array.isArray(result)) return [];
 
@@ -201,17 +224,18 @@ export class Lsp {
     }));
   }
 
-  async findImplementations(relPath: string, line: number, character: number): Promise<Location[]> {
+  async findSymbolImplementations(relPath: string, symbolName: string): Promise<Location[]> {
     if (!this.capabilities.implementation) return [];
 
-    const { uri } = await this.openDoc(relPath);
+    const pos = await this.findSymbolPosition(relPath, symbolName);
+    if (!pos) return [];
 
     const result = await this.request("textDocument/implementation", {
-      textDocument: { uri },
-      position: { line, character },
+      textDocument: { uri: pos.uri },
+      position: { line: pos.line, character: pos.character },
     }) as Array<{ uri: string; range: { start: { line: number; character: number } } }> | null;
 
-    await this.closeDoc(uri);
+    await this.closeDoc(pos.uri);
 
     if (!result || !Array.isArray(result)) return [];
 
@@ -222,22 +246,22 @@ export class Lsp {
     }));
   }
 
-  async goToDefinition(relPath: string, line: number, character: number): Promise<Location[]> {
+  async findSymbolDefinition(relPath: string, symbolName: string): Promise<Location[]> {
     if (!this.capabilities.definition) return [];
 
-    const { uri } = await this.openDoc(relPath);
+    const pos = await this.findSymbolPosition(relPath, symbolName);
+    if (!pos) return [];
 
     const result = await this.request("textDocument/definition", {
-      textDocument: { uri },
-      position: { line, character },
+      textDocument: { uri: pos.uri },
+      position: { line: pos.line, character: pos.character },
     // deno-lint-ignore no-explicit-any
     }) as any;
 
-    await this.closeDoc(uri);
+    await this.closeDoc(pos.uri);
 
     if (!result) return [];
 
-    // Can be a single location or array
     const locs = Array.isArray(result) ? result : [result];
     return locs
       .filter((r: { uri?: string }) => r.uri)
@@ -256,7 +280,6 @@ export class Lsp {
     // Give the server time to produce diagnostics
     await new Promise((r) => setTimeout(r, 500));
 
-    // For pull-based diagnostics (LSP 3.17+)
     if (this.capabilities.diagnostics) {
       const result = await this.request("textDocument/diagnostic", {
         textDocument: { uri },
@@ -264,12 +287,10 @@ export class Lsp {
       }) as { items?: any[] } | null;
 
       await this.closeDoc(uri);
-
       if (!result?.items) return [];
       return result.items.map(parseDiagnostic);
     }
 
-    // For push-based: we'd need to track notifications (not implemented yet)
     await this.closeDoc(uri);
     return [];
   }
@@ -281,7 +302,6 @@ export class Lsp {
     const proc = this.process;
     this.process = null;
 
-    // Close all open docs
     for (const uri of this.openDocs) {
       try {
         await this.notify("textDocument/didClose", { textDocument: { uri } });
@@ -292,9 +312,7 @@ export class Lsp {
     try {
       await this.request("shutdown", null);
       await this.notify("exit", null);
-    } catch {
-      // best effort
-    }
+    } catch { /* */ }
     try { await this.writer?.close(); } catch { /* */ }
     try { await this.reader?.cancel(); } catch { /* */ }
     this.writer = null;
@@ -308,7 +326,6 @@ export class Lsp {
   private async request(method: string, params: unknown): Promise<unknown> {
     const id = ++this.requestId;
     const msg = JSON.stringify({ jsonrpc: "2.0", id, method, params });
-
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
       this.send(msg);
@@ -371,9 +388,7 @@ export class Lsp {
             resolve(msg.result);
           }
         }
-      } catch {
-        // malformed message, skip
-      }
+      } catch { /* malformed message */ }
     }
   }
 }
@@ -392,10 +407,7 @@ function symbolKindToString(kind: number): string {
 }
 
 const SEVERITY_MAP: Record<number, Diagnostic["severity"]> = {
-  1: "error",
-  2: "warning",
-  3: "info",
-  4: "hint",
+  1: "error", 2: "warning", 3: "info", 4: "hint",
 };
 
 // deno-lint-ignore no-explicit-any

@@ -8,12 +8,6 @@ export interface ExportInfo {
   type: string;
 }
 
-export interface HoverResult {
-  contents: string;
-  line: number;
-  character: number;
-}
-
 export interface Location {
   uri: string;
   line: number;
@@ -49,10 +43,10 @@ export interface LspContext {
     businessDir: string,
     featureDirs: string[],
   ): Promise<Map<string, ExportInfo[]>>;
-  hover(relPath: string, line: number, character: number): Promise<HoverResult | null>;
-  findReferences(relPath: string, line: number, character: number): Promise<Location[]>;
-  findImplementations(relPath: string, line: number, character: number): Promise<Location[]>;
-  goToDefinition(relPath: string, line: number, character: number): Promise<Location[]>;
+  getSymbolType(relPath: string, symbolName: string): Promise<string | null>;
+  findSymbolReferences(relPath: string, symbolName: string): Promise<Location[]>;
+  findSymbolImplementations(relPath: string, symbolName: string): Promise<Location[]>;
+  findSymbolDefinition(relPath: string, symbolName: string): Promise<Location[]>;
   getDiagnostics(relPath: string): Promise<Diagnostic[]>;
 }
 
