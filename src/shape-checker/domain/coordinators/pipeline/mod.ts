@@ -1,5 +1,6 @@
 import { buildContext } from "../../data/filesystem/mod.ts";
 import { quickQuery } from "../../data/llm/mod.ts";
+import { DenoLsp } from "../../data/lsp/mod.ts";
 import { extname } from "jsr:@std/path";
 import type { EntryResult } from "../../../../core/dto/types.ts";
 import type { RuleDefinition } from "../../business/poly-mod.ts";
@@ -11,6 +12,15 @@ export async function runPipeline(
 ): Promise<EntryResult[]> {
   const ctx = await buildContext(targetDir);
 
+  // Start LSP for type analysis
+  const lsp = new DenoLsp(targetDir);
+  try {
+    await lsp.initialize();
+    ctx.lsp = lsp;
+  } catch {
+    ctx.lsp = null;
+  }
+
   const entries = [
     ...ctx.dirs.map((p) => ({ path: p, target: "folder" as const })),
     ...ctx.files.map((p) => ({
@@ -21,27 +31,31 @@ export async function runPipeline(
 
   const results: EntryResult[] = [];
 
-  for (const entry of entries) {
-    for (const rule of rules) {
-      const violations = await rule.check(entry.path, entry.target, ctx);
-      if (violations !== null) {
-        let suggestion: string | undefined;
-        if (llmMode) {
-          const prompt = rule.buildPrompt(violations, entry.path, entry.target);
-          suggestion = await quickQuery(prompt, {
-            systemPrompt: rule.systemPrompt,
-            model: "claude-haiku-4-5-20251001",
+  try {
+    for (const entry of entries) {
+      for (const rule of rules) {
+        const violations = await rule.check(entry.path, entry.target, ctx);
+        if (violations !== null) {
+          let suggestion: string | undefined;
+          if (llmMode) {
+            const prompt = rule.buildPrompt(violations, entry.path, entry.target);
+            suggestion = await quickQuery(prompt, {
+              systemPrompt: rule.systemPrompt,
+              model: "claude-haiku-4-5-20251001",
+            });
+          }
+          results.push({
+            path: entry.path,
+            target: entry.target,
+            rule: rule.name,
+            violations,
+            suggestion,
           });
         }
-        results.push({
-          path: entry.path,
-          target: entry.target,
-          rule: rule.name,
-          violations,
-          suggestion,
-        });
       }
     }
+  } finally {
+    await lsp.shutdown();
   }
 
   return results;
