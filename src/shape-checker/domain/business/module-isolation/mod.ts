@@ -3,6 +3,12 @@ import type { PipelineContext, EntryTarget } from "../../../../core/dto/types.ts
 
 const SOURCE_EXTS = new Set(["ts", "tsx", "js", "jsx"]);
 
+function uriToRelPath(uri: string, targetDir: string): string | null {
+  const prefix = `file://${targetDir}/`;
+  if (!uri.startsWith(prefix)) return null;
+  return uri.slice(prefix.length);
+}
+
 export async function check(
   path: string,
   target: EntryTarget,
@@ -25,6 +31,40 @@ export async function check(
       violations.push(`bootstrap-not-modroot:${targetModule}:${imp}`);
     } else if (!source.isBootstrap) {
       violations.push(`cross-module:${source.module}→${targetModule}:${imp}`);
+    }
+  }
+
+  // LSP enhancement: trace re-exports to find hidden cross-module leaks
+  if (ctx.lsp?.capabilities.definition) {
+    for (const imp of imports) {
+      if (!imp.startsWith("src/")) continue;
+      const apparentModule = getModuleFromPath(imp);
+      if (!apparentModule || apparentModule === source.module || apparentModule === "core") continue;
+
+      let exports;
+      try { exports = await ctx.lsp.getExportTypes(imp); } catch { continue; }
+
+      for (const exp of exports) {
+        const defs = await ctx.lsp.findSymbolDefinition(imp, exp.name);
+        for (const def of defs) {
+          const resolvedPath = uriToRelPath(def.uri, ctx.targetDir);
+          if (!resolvedPath) continue;
+          const resolvedModule = getModuleFromPath(resolvedPath);
+          if (!resolvedModule || resolvedModule === source.module || resolvedModule === "core") continue;
+
+          if (source.isBootstrap && !isModRootImport(resolvedPath)) {
+            const v = `bootstrap-not-modroot:${resolvedModule}:${imp}(resolved:${resolvedPath})`;
+            if (!violations.some((e) => e.includes(resolvedPath))) {
+              violations.push(v);
+            }
+          } else if (!source.isBootstrap) {
+            const v = `cross-module:${source.module}→${resolvedModule}:${imp}(resolved:${resolvedPath})`;
+            if (!violations.some((e) => e.includes(resolvedPath))) {
+              violations.push(v);
+            }
+          }
+        }
+      }
     }
   }
 
