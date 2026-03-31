@@ -8,18 +8,52 @@ export interface ExportInfo {
   type: string;
 }
 
+export interface HoverResult {
+  contents: string;
+  line: number;
+  character: number;
+}
+
+export interface Location {
+  uri: string;
+  line: number;
+  character: number;
+}
+
+export interface Diagnostic {
+  message: string;
+  severity: "error" | "warning" | "info" | "hint";
+  line: number;
+  character: number;
+}
+
 export interface LspConfig {
   command: string;
   args: string[];
   initializationOptions?: Record<string, unknown>;
 }
 
+export interface LspCapabilities {
+  documentSymbol: boolean;
+  hover: boolean;
+  references: boolean;
+  implementation: boolean;
+  definition: boolean;
+  diagnostics: boolean;
+}
+
 export interface LspContext {
+  capabilities: LspCapabilities;
   getExportTypes(relPath: string): Promise<ExportInfo[]>;
   getSiblingExportSignatures(
     businessDir: string,
     featureDirs: string[],
   ): Promise<Map<string, ExportInfo[]>>;
+  hover(relPath: string, line: number, character: number): Promise<HoverResult | null>;
+  findReferences(relPath: string, line: number, character: number): Promise<Location[]>;
+  findImplementations(relPath: string, line: number, character: number): Promise<Location[]>;
+  goToDefinition(relPath: string, line: number, character: number): Promise<Location[]>;
+  getDiagnostics(relPath: string): Promise<Diagnostic[]>;
 }
 
 export const PipelineContextSchema = z.object({
