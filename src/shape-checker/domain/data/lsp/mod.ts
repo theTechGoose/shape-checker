@@ -1,5 +1,15 @@
 import { join } from "jsr:@std/path";
-import type { ExportInfo, LspConfig } from "../../../../core/dto/types.ts";
+import type {
+  ExportInfo,
+  HoverResult,
+  Location,
+  Diagnostic,
+  LspConfig,
+  LspCapabilities,
+} from "../../../../core/dto/types.ts";
+
+// deno-lint-ignore no-explicit-any
+type ServerCapabilities = Record<string, any>;
 
 export class Lsp {
   private process: Deno.ChildProcess | null = null;
@@ -11,6 +21,15 @@ export class Lsp {
   private readLoop: Promise<void> | null = null;
   private projectRoot: string;
   private config: LspConfig;
+  private openDocs = new Set<string>();
+  capabilities: LspCapabilities = {
+    documentSymbol: false,
+    hover: false,
+    references: false,
+    implementation: false,
+    definition: false,
+    diagnostics: false,
+  };
 
   constructor(projectRoot: string, config: LspConfig) {
     this.projectRoot = projectRoot;
@@ -30,36 +49,66 @@ export class Lsp {
     this.reader = this.process.stdout.getReader();
     this.readLoop = this.startReadLoop();
 
-    await this.request("initialize", {
+    const result = await this.request("initialize", {
       processId: Deno.pid,
       capabilities: {},
       rootUri: `file://${this.projectRoot}`,
       ...(this.config.initializationOptions && {
         initializationOptions: this.config.initializationOptions,
       }),
-    });
+    }) as { capabilities?: ServerCapabilities } | null;
+
+    const caps = result?.capabilities ?? {};
+    this.capabilities = {
+      documentSymbol: !!caps.documentSymbolProvider,
+      hover: !!caps.hoverProvider,
+      references: !!caps.referencesProvider,
+      implementation: !!caps.implementationProvider,
+      definition: !!caps.definitionProvider,
+      diagnostics: !!caps.diagnosticProvider,
+    };
 
     await this.notify("initialized", {});
   }
 
-  async getExportTypes(relPath: string): Promise<ExportInfo[]> {
+  // -- Document management --
+
+  private async openDoc(relPath: string): Promise<{ uri: string; content: string }> {
     const absPath = join(this.projectRoot, relPath);
     const uri = `file://${absPath}`;
 
-    const content = await Deno.readTextFile(absPath);
-    const version = 1;
+    if (!this.openDocs.has(uri)) {
+      const content = await Deno.readTextFile(absPath);
+      await this.notify("textDocument/didOpen", {
+        textDocument: { uri, languageId: "typescript", version: 1, text: content },
+      });
+      this.openDocs.add(uri);
+      return { uri, content };
+    }
 
-    await this.notify("textDocument/didOpen", {
-      textDocument: { uri, languageId: "typescript", version, text: content },
-    });
+    const content = await Deno.readTextFile(absPath);
+    return { uri, content };
+  }
+
+  private async closeDoc(uri: string): Promise<void> {
+    if (this.openDocs.has(uri)) {
+      await this.notify("textDocument/didClose", { textDocument: { uri } });
+      this.openDocs.delete(uri);
+    }
+  }
+
+  // -- Capabilities --
+
+  async getExportTypes(relPath: string): Promise<ExportInfo[]> {
+    if (!this.capabilities.documentSymbol) return [];
+
+    const { uri, content } = await this.openDoc(relPath);
 
     const symbols = await this.request("textDocument/documentSymbol", {
       textDocument: { uri },
     }) as Array<{ name: string; kind: number; detail?: string }> | null;
 
-    await this.notify("textDocument/didClose", {
-      textDocument: { uri },
-    });
+    await this.closeDoc(uri);
 
     if (!symbols || !Array.isArray(symbols)) return [];
 
@@ -68,9 +117,8 @@ export class Lsp {
 
     for (const sym of symbols) {
       const isExported = lines.some((line) =>
-        line.includes(`export`) && line.includes(sym.name)
+        line.includes("export") && line.includes(sym.name)
       );
-
       if (isExported) {
         exports.push({
           name: sym.name,
@@ -100,10 +148,147 @@ export class Lsp {
     return result;
   }
 
+  async hover(relPath: string, line: number, character: number): Promise<HoverResult | null> {
+    if (!this.capabilities.hover) return null;
+
+    const { uri } = await this.openDoc(relPath);
+
+    const result = await this.request("textDocument/hover", {
+      textDocument: { uri },
+      position: { line, character },
+    // deno-lint-ignore no-explicit-any
+    }) as any | null;
+
+    await this.closeDoc(uri);
+
+    if (!result?.contents) return null;
+
+    let contents: string;
+    if (typeof result.contents === "string") {
+      contents = result.contents;
+    } else if (result.contents.value) {
+      contents = result.contents.value;
+    } else if (Array.isArray(result.contents)) {
+      contents = result.contents.map((c: string | { value: string }) =>
+        typeof c === "string" ? c : c.value
+      ).join("\n");
+    } else {
+      contents = JSON.stringify(result.contents);
+    }
+
+    return { contents, line, character };
+  }
+
+  async findReferences(relPath: string, line: number, character: number): Promise<Location[]> {
+    if (!this.capabilities.references) return [];
+
+    const { uri } = await this.openDoc(relPath);
+
+    const result = await this.request("textDocument/references", {
+      textDocument: { uri },
+      position: { line, character },
+      context: { includeDeclaration: false },
+    }) as Array<{ uri: string; range: { start: { line: number; character: number } } }> | null;
+
+    await this.closeDoc(uri);
+
+    if (!result || !Array.isArray(result)) return [];
+
+    return result.map((r) => ({
+      uri: r.uri,
+      line: r.range.start.line,
+      character: r.range.start.character,
+    }));
+  }
+
+  async findImplementations(relPath: string, line: number, character: number): Promise<Location[]> {
+    if (!this.capabilities.implementation) return [];
+
+    const { uri } = await this.openDoc(relPath);
+
+    const result = await this.request("textDocument/implementation", {
+      textDocument: { uri },
+      position: { line, character },
+    }) as Array<{ uri: string; range: { start: { line: number; character: number } } }> | null;
+
+    await this.closeDoc(uri);
+
+    if (!result || !Array.isArray(result)) return [];
+
+    return result.map((r) => ({
+      uri: r.uri,
+      line: r.range.start.line,
+      character: r.range.start.character,
+    }));
+  }
+
+  async goToDefinition(relPath: string, line: number, character: number): Promise<Location[]> {
+    if (!this.capabilities.definition) return [];
+
+    const { uri } = await this.openDoc(relPath);
+
+    const result = await this.request("textDocument/definition", {
+      textDocument: { uri },
+      position: { line, character },
+    // deno-lint-ignore no-explicit-any
+    }) as any;
+
+    await this.closeDoc(uri);
+
+    if (!result) return [];
+
+    // Can be a single location or array
+    const locs = Array.isArray(result) ? result : [result];
+    return locs
+      .filter((r: { uri?: string }) => r.uri)
+      .map((r: { uri: string; range: { start: { line: number; character: number } } }) => ({
+        uri: r.uri,
+        line: r.range.start.line,
+        character: r.range.start.character,
+      }));
+  }
+
+  async getDiagnostics(relPath: string): Promise<Diagnostic[]> {
+    if (!this.process) return [];
+
+    const { uri } = await this.openDoc(relPath);
+
+    // Give the server time to produce diagnostics
+    await new Promise((r) => setTimeout(r, 500));
+
+    // For pull-based diagnostics (LSP 3.17+)
+    if (this.capabilities.diagnostics) {
+      const result = await this.request("textDocument/diagnostic", {
+        textDocument: { uri },
+      // deno-lint-ignore no-explicit-any
+      }) as { items?: any[] } | null;
+
+      await this.closeDoc(uri);
+
+      if (!result?.items) return [];
+      return result.items.map(parseDiagnostic);
+    }
+
+    // For push-based: we'd need to track notifications (not implemented yet)
+    await this.closeDoc(uri);
+    return [];
+  }
+
+  // -- Lifecycle --
+
   async shutdown(): Promise<void> {
     if (!this.process) return;
     const proc = this.process;
     this.process = null;
+
+    // Close all open docs
+    for (const uri of this.openDocs) {
+      try {
+        await this.notify("textDocument/didClose", { textDocument: { uri } });
+      } catch { /* */ }
+    }
+    this.openDocs.clear();
+
     try {
       await this.request("shutdown", null);
       await this.notify("exit", null);
@@ -117,6 +302,8 @@ export class Lsp {
     try { proc.kill(); } catch { /* */ }
     try { await proc.status; } catch { /* */ }
   }
+
+  // -- JSON-RPC transport --
 
   private async request(method: string, params: unknown): Promise<unknown> {
     const id = ++this.requestId;
@@ -202,4 +389,21 @@ function symbolKindToString(kind: number): string {
     25: "Operator", 26: "TypeParameter",
   };
   return kinds[kind] ?? "Unknown";
+}
+
+const SEVERITY_MAP: Record<number, Diagnostic["severity"]> = {
+  1: "error",
+  2: "warning",
+  3: "info",
+  4: "hint",
+};
+
+// deno-lint-ignore no-explicit-any
+function parseDiagnostic(d: any): Diagnostic {
+  return {
+    message: d.message ?? "",
+    severity: SEVERITY_MAP[d.severity] ?? "info",
+    line: d.range?.start?.line ?? 0,
+    character: d.range?.start?.character ?? 0,
+  };
 }
