@@ -13,6 +13,12 @@ const VALIDATION_PATTERNS = [
   /\bv\.\w+\(/,
 ];
 
+function isTypeOnlyExport(kind: string, typeStr: string): boolean {
+  if (kind === "Interface") return true;
+  if (typeStr.startsWith("type ") && !typeStr.includes("z.infer")) return true;
+  return false;
+}
+
 export async function check(
   path: string,
   target: EntryTarget,
@@ -24,11 +30,31 @@ export async function check(
 
   const content = await ctx.getFileContent(path);
 
-  for (const pattern of VALIDATION_PATTERNS) {
-    if (pattern.test(content)) return null;
+  const hasValidationPattern = VALIDATION_PATTERNS.some((p) => p.test(content));
+
+  if (!hasValidationPattern) return ["no-validation"];
+
+  // LSP enhancement: verify exports aren't ALL type-only despite regex match
+  if (ctx.lsp) {
+    let exports;
+    try { exports = await ctx.lsp.getExportTypes(path); } catch { return null; }
+
+    if (exports.length === 0) return null;
+
+    let allTypeOnly = true;
+    for (const exp of exports) {
+      const typeStr = await ctx.lsp.getSymbolType(path, exp.name);
+      if (!typeStr) continue;
+      if (!isTypeOnlyExport(exp.kind, typeStr)) {
+        allTypeOnly = false;
+        break;
+      }
+    }
+
+    if (allTypeOnly) return ["type-only-exports"];
   }
 
-  return ["no-validation"];
+  return null;
 }
 
 export const SYSTEM_PROMPT = `You are a code architecture advisor enforcing DTO validation rules.
