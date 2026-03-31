@@ -1,15 +1,8 @@
 import { buildContext } from "../../data/filesystem/mod.ts";
 import { quickQuery } from "../../data/llm/mod.ts";
 import { extname } from "jsr:@std/path";
-import type { EntryResult, EntryTarget, PipelineContext } from "../../../../core/dto/types.ts";
-
-export interface RuleDefinition {
-  name: string;
-  description: string;
-  check(path: string, target: EntryTarget, ctx: PipelineContext): Promise<string[] | null>;
-  systemPrompt: string;
-  buildPrompt(violations: string[], path: string, target: EntryTarget): string;
-}
+import type { EntryResult } from "../../../../core/dto/types.ts";
+import type { RuleDefinition } from "../../business/poly-mod.ts";
 
 export async function runPipeline(
   targetDir: string,

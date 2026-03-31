@@ -1,21 +1,4 @@
 export { runPipeline } from "./domain/coordinators/pipeline/mod.ts";
-export type { RuleDefinition } from "./domain/coordinators/pipeline/mod.ts";
 export { parseArgs, printUsage, printHeader, printResults } from "./entrypoints/cli.ts";
-
-import type { RuleDefinition } from "./domain/coordinators/pipeline/mod.ts";
-
-import { check as structureCheck, SYSTEM_PROMPT as structureSystem, buildPrompt as structureBuild } from "./domain/business/structure/mod.ts";
-import { check as layerCheck, SYSTEM_PROMPT as layerSystem, buildPrompt as layerBuild } from "./domain/business/layer-restrictions/mod.ts";
-import { check as moduleCheck, SYSTEM_PROMPT as moduleSystem, buildPrompt as moduleBuild } from "./domain/business/module-isolation/mod.ts";
-import { check as polyCheck, SYSTEM_PROMPT as polySystem, buildPrompt as polyBuild } from "./domain/business/poly-isolation/mod.ts";
-import { check as dtoCheck, SYSTEM_PROMPT as dtoSystem, buildPrompt as dtoBuild } from "./domain/business/dto-validation/mod.ts";
-import { check as barrelCheck, SYSTEM_PROMPT as barrelSystem, buildPrompt as barrelBuild } from "./domain/business/barrel-discipline/mod.ts";
-
-export const rules: RuleDefinition[] = [
-  { name: "structure", description: "Validates file/folder placement against canonical-paths.json", check: structureCheck, systemPrompt: structureSystem, buildPrompt: structureBuild },
-  { name: "layer-restrictions", description: "Enforces allowed layer-to-layer import directions", check: layerCheck, systemPrompt: layerSystem, buildPrompt: layerBuild },
-  { name: "module-isolation", description: "Prevents cross-module imports outside core and mod-root", check: moduleCheck, systemPrompt: moduleSystem, buildPrompt: moduleBuild },
-  { name: "poly-isolation", description: "Ensures poly-mod is the only public surface for polymorphic features", check: polyCheck, systemPrompt: polySystem, buildPrompt: polyBuild },
-  { name: "dto-validation", description: "Requires runtime validation in DTO files", check: dtoCheck, systemPrompt: dtoSystem, buildPrompt: dtoBuild },
-  { name: "barrel-discipline", description: "Restricts re-exports to mod-root, poly-mod, and bootstrap only", check: barrelCheck, systemPrompt: barrelSystem, buildPrompt: barrelBuild },
-];
+export { rules } from "./domain/business/poly-mod.ts";
+export type { RuleDefinition } from "./domain/business/poly-mod.ts";

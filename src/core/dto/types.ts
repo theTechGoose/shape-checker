@@ -2,18 +2,6 @@ import { z } from "npm:zod";
 
 export type EntryTarget = string | "folder";
 
-export const RuleSchema = z.object({
-  name: z.string(),
-  description: z.string(),
-});
-
-export interface Rule {
-  name: string;
-  description: string;
-  check(path: string, target: EntryTarget, ctx: PipelineContext): Promise<string[] | null>;
-  generateSuggestion(violations: string[], path: string, target: EntryTarget): Promise<string>;
-}
-
 export const PipelineContextSchema = z.object({
   targetDir: z.string(),
   files: z.array(z.string()),
