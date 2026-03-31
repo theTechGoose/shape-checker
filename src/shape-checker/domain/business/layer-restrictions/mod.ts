@@ -12,6 +12,12 @@ const ALLOWED: Record<string, Set<string>> = {
   bootstrap: new Set(["business", "data", "coordinators", "entrypoints", "dto"]),
 };
 
+function uriToRelPath(uri: string, targetDir: string): string | null {
+  const prefix = `file://${targetDir}/`;
+  if (!uri.startsWith(prefix)) return null;
+  return uri.slice(prefix.length);
+}
+
 export async function check(
   path: string,
   target: EntryTarget,
@@ -33,6 +39,30 @@ export async function check(
     const targetLayer = getLayerFromPath(imp);
     if (targetLayer !== "unknown" && !allowed.has(targetLayer)) {
       violations.push(`${classification.layer}→${targetLayer}:${imp}`);
+    }
+  }
+
+  // LSP enhancement: trace through re-exports to find hidden layer violations
+  if (ctx.lsp?.capabilities.definition) {
+    for (const imp of imports) {
+      if (!imp.startsWith("src/")) continue;
+      let exports;
+      try { exports = await ctx.lsp.getExportTypes(imp); } catch { continue; }
+
+      for (const exp of exports) {
+        const defs = await ctx.lsp.findSymbolDefinition(imp, exp.name);
+        for (const def of defs) {
+          const resolvedPath = uriToRelPath(def.uri, ctx.targetDir);
+          if (!resolvedPath) continue;
+          const resolvedLayer = getLayerFromPath(resolvedPath);
+          if (resolvedLayer !== "unknown" && !allowed.has(resolvedLayer)) {
+            const v = `${classification.layer}→${resolvedLayer}:${imp}(resolved:${resolvedPath})`;
+            if (!violations.some((e) => e.includes(resolvedPath))) {
+              violations.push(v);
+            }
+          }
+        }
+      }
     }
   }
 
