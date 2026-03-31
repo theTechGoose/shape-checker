@@ -1,0 +1,7 @@
+{
+  "tasks": {
+    "check": "deno run --allow-read --allow-net --allow-env --allow-run main.ts",
+    "compile": "deno compile --allow-read --allow-net --allow-env --allow-run -o shape-checker main.ts"
+  },
+  "compilerOptions": { "strict": true }
+}
