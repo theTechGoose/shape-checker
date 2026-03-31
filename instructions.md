@@ -1,112 +1,105 @@
-# Shape Checker
+# Task: Build Shape Checker
 
-A static analysis tool that enforces hexagonal/modular architecture rules on TypeScript projects. Optionally uses an LSP server for deep type analysis and Claude for AI-powered fix suggestions.
+Build a Deno CLI tool called `shape-checker` that statically analyzes TypeScript projects for hexagonal architecture compliance. The tool must enforce its own rules on itself — when you run it against this repo, it must produce **0 violations**.
 
-## Prerequisites
+## What to Build
 
-- Deno >= 2.x
-- `claude` CLI on PATH (only for `--llm` mode)
+A compiled binary that:
+1. Walks a target project directory
+2. Checks every file and folder against 7 architectural rules
+3. Prints violations grouped by rule with colored output
+4. Exits 0 (clean) or 1 (violations found)
+5. Optionally generates AI fix suggestions via `--llm` flag (calls `claude` CLI)
+6. Optionally uses an LSP server (baked in at compile time) for deep type analysis
 
-## Build
+## Architecture the Tool Enforces
 
-```sh
-# Default — bakes in 'deno lsp' as the LSP server
-deno task compile
-
-# Custom LSP server
-deno task compile 'typescript-language-server --stdio'
-```
-
-Produces a `./shape-checker` binary.
-
-## Usage
-
-```sh
-# Static analysis (works anywhere, including inside Claude Code)
-./shape-checker /path/to/project
-
-# With AI-powered fix suggestions
-./shape-checker /path/to/project --llm
-```
-
-Exit codes:
-- `0` — no violations
-- `1` — violations found
-- `2` — usage error
-
-## Rules
-
-| Rule | What it enforces |
-|---|---|
-| **structure** | File/folder placement matches `canonical-paths.json` |
-| **layer-restrictions** | Import directions follow hexagonal layers (business, data, coordinators, entrypoints, dto, bootstrap) |
-| **module-isolation** | No cross-module imports; bootstrap only imports through mod-root |
-| **poly-isolation** | External code imports through poly-mod, never internal files |
-| **poly-detection** | Detects 3+ sibling features with identical exports that should be behind a poly-mod (requires LSP) |
-| **dto-validation** | DTO files must contain runtime validation (zod, valibot, etc.) |
-| **barrel-discipline** | Re-exports only allowed in mod-root, poly-mod, and bootstrap |
-
-## Architecture Spec
-
-Projects are validated against the structure defined in `canonical-paths.json`:
+Projects must follow this structure, defined in `canonical-paths.json`:
 
 ```
 src/
-  bootstrap/          # Composition root — wires modules, starts the app
-    mod.ts
-    config.ts
-  core/               # Shared across all modules
-    business/<feature>/mod.ts, test.ts
-    data/<service>/mod.ts, smk.test.ts
+  bootstrap/              mod.ts, config.ts
+  core/
+    business/<feature>/   mod.ts, test.ts
+    data/<service>/       mod.ts, smk.test.ts
     dto/<name>.ts
-  <module>/           # Isolated module
-    mod-root.ts       # Only external import surface
+  <module>/
+    mod-root.ts
     domain/
       business/
-        poly-mod.ts   # Polymorphic surface (optional)
-        <feature>/mod.ts, test.ts
-      data/<service>/mod.ts, smk.test.ts
-      coordinators/<process>/mod.ts, int.test.ts
+        poly-mod.ts       (optional)
+        <feature>/        mod.ts, test.ts
+      data/<service>/     mod.ts, smk.test.ts
+      coordinators/<process>/  mod.ts, int.test.ts
     entrypoints/<name>.ts
     dto/<name>.ts
-fixtures/
-e2e/
-assets/
+fixtures/  e2e/  assets/
 ```
 
-## Layer Import Rules
+## The 7 Rules
 
-```
-business    → business, dto
-data        → data, dto
-coordinators → business, data, coordinators, dto
-entrypoints → business, data, coordinators, entrypoints, dto
-dto         → dto
-bootstrap   → everything
-```
+### 1. structure
+Validate file/folder paths against `canonical-paths.json`. Forbidden dir names (`lib`, `modules`, `internal`), loose file names (`utils`, `helpers`, `common`, `shared`), root files against `$rootFiles` allowlist. Directories must resolve in the spec tree. Files must be in directories that expect files.
+
+### 2. layer-restrictions
+Enforce import directions between hexagonal layers:
+- `business` → business, dto
+- `data` → data, dto
+- `coordinators` → business, data, coordinators, dto
+- `entrypoints` → business, data, coordinators, entrypoints, dto
+- `dto` → dto
+- `bootstrap` → everything
+
+With LSP: trace re-exports via `findSymbolDefinition` to catch hidden boundary crossings.
+
+### 3. module-isolation
+Modules import only from themselves or `core/`. Bootstrap imports any module but only through its `mod-root.ts`. Cross-module imports are forbidden.
+
+With LSP: same definition tracing to catch leaks through re-exports.
+
+### 4. poly-isolation
+External code must import through `poly-mod.ts`, never from internal feature files within that directory.
+
+With LSP: verify poly-mod imports actually resolve within the poly directory scope.
+
+### 5. poly-detection
+Detect when 3+ sibling business features export functions with the same names and compatible type signatures — they should be behind a `poly-mod.ts`. **Requires LSP** — returns null without it.
+
+Uses `getSiblingExportSignatures` + `getSymbolType` to compare across siblings.
+
+### 6. dto-validation
+Every file in a `dto/` directory must contain runtime validation (zod, valibot, typebox patterns). Type-only DTOs fail because they disappear at runtime.
+
+With LSP: verify exports aren't all type-only despite regex matches (catches false positives).
+
+### 7. barrel-discipline
+Re-exports (`export { x } from`, `export * from`) only allowed in `mod-root.ts`, `poly-mod.ts`, and `bootstrap/` files.
 
 ## LSP Integration
 
-When compiled with an LSP server, the tool spawns it at runtime for type-level analysis:
+The tool integrates a generic LSP client:
+- At compile time, `build.ts` takes an LSP command as argument (default: `deno lsp`), resolves the binary path, and bakes it into the binary
+- At runtime, the pipeline spawns the LSP, negotiates capabilities, and injects it into the rule context
+- Rules check `ctx.lsp?.capabilities` before using LSP methods — graceful fallback when unavailable
+- The LSP API is **symbol-based**: `getSymbolType(file, name)`, `findSymbolDefinition(file, name)`, etc. — not position-based
 
-- **Definition tracing** — resolves re-exports to catch hidden layer/module boundary crossings
-- **Symbol type analysis** — compares export signatures across siblings for poly-detection
-- **Type-only detection** — verifies DTO exports have runtime presence, not just types
+## LLM Integration
 
-All LSP features degrade gracefully. If the LSP is unavailable or doesn't support a capability, rules fall back to regex/path-based analysis.
+The `--llm` flag calls `claude` CLI for each violation to generate fix suggestions. Each rule exports a `SYSTEM_PROMPT` and `buildPrompt()` function. The tool clears `CLAUDECODE` and `CLAUDE_CODE_ENTRYPOINT` env vars so it works inside Claude Code sessions.
 
-## Development
+## Build Commands
 
 ```sh
-# Type-check
-deno check main.ts
-
-# Run tests
-deno test --allow-read --allow-net --allow-env --allow-run src/
-
-# Run without compiling
-deno task check /path/to/project
-
-# Compile and install
-deno task compile && cp shape-checker ~/bin/
+deno task compile                    # default LSP: deno lsp
+deno task compile 'deno lsp'         # explicit
+deno task compile 'ts-server --stdio' # different LSP
 ```
+
+## Acceptance Criteria
+
+1. `deno check main.ts` — type-checks clean
+2. `deno test --allow-read --allow-net --allow-env --allow-run src/` — all tests pass
+3. `deno task compile` — produces binary
+4. `./shape-checker <this-repo>` — **0 violations**
+5. `./shape-checker <this-repo> --llm` — violations (if any) get AI suggestions
+6. The tool itself follows the architecture it enforces — it is structured as a hexagonal module under `src/shape-checker/` with proper layers, mod-root, poly-mod, tests, and DTOs with validation
