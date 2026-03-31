@@ -14,6 +14,7 @@ import { check as moduleCheck, SYSTEM_PROMPT as moduleSystem, buildPrompt as mod
 import { check as polyCheck, SYSTEM_PROMPT as polySystem, buildPrompt as polyBuild } from "./poly-isolation/mod.ts";
 import { check as dtoCheck, SYSTEM_PROMPT as dtoSystem, buildPrompt as dtoBuild } from "./dto-validation/mod.ts";
 import { check as barrelCheck, SYSTEM_PROMPT as barrelSystem, buildPrompt as barrelBuild } from "./barrel-discipline/mod.ts";
+import { check as polyDetCheck, SYSTEM_PROMPT as polyDetSystem, buildPrompt as polyDetBuild } from "./poly-detection/mod.ts";
 
 export const rules: RuleDefinition[] = [
   { name: "structure", description: "Validates file/folder placement against canonical-paths.json", check: structureCheck, systemPrompt: structureSystem, buildPrompt: structureBuild },
@@ -22,4 +23,5 @@ export const rules: RuleDefinition[] = [
   { name: "poly-isolation", description: "Ensures poly-mod is the only public surface for polymorphic features", check: polyCheck, systemPrompt: polySystem, buildPrompt: polyBuild },
   { name: "dto-validation", description: "Requires runtime validation in DTO files", check: dtoCheck, systemPrompt: dtoSystem, buildPrompt: dtoBuild },
   { name: "barrel-discipline", description: "Restricts re-exports to mod-root, poly-mod, and bootstrap only", check: barrelCheck, systemPrompt: barrelSystem, buildPrompt: barrelBuild },
+  { name: "poly-detection", description: "Detects sibling features that should be behind a poly-mod", check: polyDetCheck, systemPrompt: polyDetSystem, buildPrompt: polyDetBuild },
 ];
