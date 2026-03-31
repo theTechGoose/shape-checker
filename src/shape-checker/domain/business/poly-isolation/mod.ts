@@ -3,6 +3,12 @@ import { dirname } from "jsr:@std/path";
 
 const SOURCE_EXTS = new Set(["ts", "tsx", "js", "jsx"]);
 
+function uriToRelPath(uri: string, targetDir: string): string | null {
+  const prefix = `file://${targetDir}/`;
+  if (!uri.startsWith(prefix)) return null;
+  return uri.slice(prefix.length);
+}
+
 export async function check(
   path: string,
   target: EntryTarget,
@@ -25,6 +31,32 @@ export async function check(
         imp.split("/").pop()?.replace(/\.[^.]+$/, "") !== "poly-mod"
       ) {
         violations.push(`bypass:${poly.polyModPath}:${imp}`);
+      }
+    }
+  }
+
+  // LSP enhancement: verify poly-mod imports resolve within the poly directory
+  if (ctx.lsp?.capabilities.definition) {
+    for (const imp of imports) {
+      for (const poly of polyFeatures) {
+        if (path.startsWith(poly.dir + "/") || path === poly.dir) continue;
+        // Only check imports that DO go through poly-mod (currently passing)
+        if (!imp.startsWith(poly.dir + "/")) continue;
+        if (imp.split("/").pop()?.replace(/\.[^.]+$/, "") !== "poly-mod") continue;
+
+        let exports;
+        try { exports = await ctx.lsp.getExportTypes(imp); } catch { continue; }
+
+        for (const exp of exports) {
+          const defs = await ctx.lsp.findSymbolDefinition(imp, exp.name);
+          for (const def of defs) {
+            const resolvedPath = uriToRelPath(def.uri, ctx.targetDir);
+            if (!resolvedPath) continue;
+            if (!resolvedPath.startsWith(poly.dir + "/") && resolvedPath !== poly.polyModPath) {
+              violations.push(`leak:${poly.polyModPath}:${exp.name}→${resolvedPath}`);
+            }
+          }
+        }
       }
     }
   }
