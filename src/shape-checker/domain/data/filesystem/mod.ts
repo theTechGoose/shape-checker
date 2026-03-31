@@ -53,5 +53,5 @@ export async function buildContext(targetDir: string): Promise<PipelineContext> 
     return specifiers;
   }
 
-  return { targetDir, files, dirs, getFileContent, getImports };
+  return { targetDir, files, dirs, getFileContent, getImports, lsp: null };
 }

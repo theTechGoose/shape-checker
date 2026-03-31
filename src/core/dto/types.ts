@@ -2,6 +2,20 @@ import { z } from "npm:zod";
 
 export type EntryTarget = string | "folder";
 
+export interface ExportInfo {
+  name: string;
+  kind: string;
+  type: string;
+}
+
+export interface LspContext {
+  getExportTypes(relPath: string): Promise<ExportInfo[]>;
+  getSiblingExportSignatures(
+    businessDir: string,
+    featureDirs: string[],
+  ): Promise<Map<string, ExportInfo[]>>;
+}
+
 export const PipelineContextSchema = z.object({
   targetDir: z.string(),
   files: z.array(z.string()),
@@ -14,6 +28,7 @@ export interface PipelineContext {
   dirs: string[];
   getFileContent(rel: string): Promise<string>;
   getImports(rel: string): Promise<string[]>;
+  lsp: LspContext | null;
 }
 
 export const EntryResultSchema = z.object({
