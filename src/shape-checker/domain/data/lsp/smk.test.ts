@@ -1,11 +1,15 @@
-import { assert, assertEquals } from "jsr:@std/assert";
-import { DenoLsp } from "./mod.ts";
+import { assert } from "jsr:@std/assert";
+import { Lsp } from "./mod.ts";
 
 Deno.test({
-  name: "DenoLsp — get export types from a file",
+  name: "Lsp — get export types from a file",
   ignore: Deno.env.get("CI") === "true",
   async fn() {
-    const lsp = new DenoLsp(Deno.cwd());
+    const lsp = new Lsp(Deno.cwd(), {
+      command: "deno",
+      args: ["lsp"],
+      initializationOptions: { enable: true },
+    });
     await lsp.initialize();
 
     try {

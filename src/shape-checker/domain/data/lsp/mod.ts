@@ -1,13 +1,7 @@
-import { DENO_PATH } from "../../../../core/dto/deno-config.ts";
 import { join } from "jsr:@std/path";
+import type { ExportInfo, LspConfig } from "../../../../core/dto/types.ts";
 
-export interface ExportInfo {
-  name: string;
-  kind: string;
-  type: string;
-}
-
-export class DenoLsp {
+export class Lsp {
   private process: Deno.ChildProcess | null = null;
   private writer: WritableStreamDefaultWriter<Uint8Array> | null = null;
   private reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
@@ -16,14 +10,16 @@ export class DenoLsp {
   private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
   private readLoop: Promise<void> | null = null;
   private projectRoot: string;
+  private config: LspConfig;
 
-  constructor(projectRoot: string) {
+  constructor(projectRoot: string, config: LspConfig) {
     this.projectRoot = projectRoot;
+    this.config = config;
   }
 
   async initialize(): Promise<void> {
-    const cmd = new Deno.Command(DENO_PATH, {
-      args: ["lsp"],
+    const cmd = new Deno.Command(this.config.command, {
+      args: this.config.args,
       stdin: "piped",
       stdout: "piped",
       stderr: "null",
@@ -38,11 +34,9 @@ export class DenoLsp {
       processId: Deno.pid,
       capabilities: {},
       rootUri: `file://${this.projectRoot}`,
-      initializationOptions: {
-        enable: true,
-        lint: false,
-        unstable: false,
-      },
+      ...(this.config.initializationOptions && {
+        initializationOptions: this.config.initializationOptions,
+      }),
     });
 
     await this.notify("initialized", {});
@@ -59,7 +53,6 @@ export class DenoLsp {
       textDocument: { uri, languageId: "typescript", version, text: content },
     });
 
-    // Use document symbols to get exported items
     const symbols = await this.request("textDocument/documentSymbol", {
       textDocument: { uri },
     }) as Array<{ name: string; kind: number; detail?: string }> | null;
@@ -74,7 +67,6 @@ export class DenoLsp {
     const lines = content.split("\n");
 
     for (const sym of symbols) {
-      // Check if symbol is exported by looking at the source
       const isExported = lines.some((line) =>
         line.includes(`export`) && line.includes(sym.name)
       );

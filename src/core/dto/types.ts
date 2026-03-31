@@ -8,6 +8,12 @@ export interface ExportInfo {
   type: string;
 }
 
+export interface LspConfig {
+  command: string;
+  args: string[];
+  initializationOptions?: Record<string, unknown>;
+}
+
 export interface LspContext {
   getExportTypes(relPath: string): Promise<ExportInfo[]>;
   getSiblingExportSignatures(
