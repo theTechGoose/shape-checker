@@ -1,6 +1,7 @@
 import { buildContext } from "../../data/filesystem/mod.ts";
 import { quickQuery } from "../../data/llm/mod.ts";
-import { DenoLsp } from "../../data/lsp/mod.ts";
+import { Lsp } from "../../data/lsp/mod.ts";
+import { LSP_CONFIG } from "../../../../core/dto/lsp-config.ts";
 import { extname } from "jsr:@std/path";
 import type { EntryResult } from "../../../../core/dto/types.ts";
 import type { RuleDefinition } from "../../business/poly-mod.ts";
@@ -12,8 +13,7 @@ export async function runPipeline(
 ): Promise<EntryResult[]> {
   const ctx = await buildContext(targetDir);
 
-  // Start LSP for type analysis
-  const lsp = new DenoLsp(targetDir);
+  const lsp = new Lsp(targetDir, LSP_CONFIG);
   try {
     await lsp.initialize();
     ctx.lsp = lsp;

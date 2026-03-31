@@ -1,2 +1,2 @@
 /shape-checker
-src/core/dto/deno-config.ts
+src/core/dto/lsp-config.ts

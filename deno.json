@@ -1,8 +1,7 @@
 {
   "tasks": {
-    "build": "deno run --allow-read --allow-run --allow-write build.ts",
     "check": "deno run --allow-read --allow-net --allow-env --allow-run main.ts",
-    "compile": "deno task build && deno compile --allow-read --allow-net --allow-env --allow-run -o shape-checker main.ts"
+    "compile": "deno run --allow-read --allow-run --allow-write build.ts"
   },
   "compilerOptions": { "strict": true }
 }
