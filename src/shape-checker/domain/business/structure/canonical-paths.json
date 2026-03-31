@@ -1,7 +1,7 @@
 {
   "$forbiddenDirNames": ["lib", "modules", "internal"],
   "$looseFileNames": ["utils", "helpers", "common", "shared", "util", "helper"],
-  "$rootFiles": ["main", "deno", "deno.lock", "package", "tsconfig", "README", ".gitignore"],
+  "$rootFiles": ["main", "build", "deno", "deno.lock", "package", "tsconfig", "README", ".gitignore"],
 
   "src": {
     "bootstrap": {

@@ -8,6 +8,7 @@ const mockCtx: PipelineContext = {
   dirs: [],
   getFileContent: async () => "",
   getImports: async () => [],
+  lsp: null,
 };
 
 Deno.test("check — skips folders", async () => {

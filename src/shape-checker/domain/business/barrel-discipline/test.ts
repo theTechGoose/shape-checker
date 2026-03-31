@@ -12,6 +12,7 @@ Deno.test("check — skips mod-root files", async () => {
     dirs: [],
     getFileContent: async () => BARREL_CONTENT,
     getImports: async () => [],
+    lsp: null,
   };
   const result = await check("src/orders/mod-root.ts", "ts", ctx);
   assertEquals(result, null);
@@ -24,6 +25,7 @@ Deno.test("check — flags barrel in regular file", async () => {
     dirs: [],
     getFileContent: async () => BARREL_CONTENT,
     getImports: async () => [],
+    lsp: null,
   };
   const result = await check("src/orders/domain/business/foo/mod.ts", "ts", ctx);
   assertEquals(result, ["barrel-in-wrong-place"]);
@@ -36,6 +38,7 @@ Deno.test("check — passes file with no re-exports", async () => {
     dirs: [],
     getFileContent: async () => CLEAN_CONTENT,
     getImports: async () => [],
+    lsp: null,
   };
   const result = await check("src/orders/domain/business/foo/mod.ts", "ts", ctx);
   assertEquals(result, null);
