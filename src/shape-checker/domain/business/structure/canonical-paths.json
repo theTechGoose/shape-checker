@@ -1,6 +1,7 @@
 {
   "$forbiddenDirNames": ["lib", "modules", "internal"],
   "$looseFileNames": ["utils", "helpers", "common", "shared", "util", "helper"],
+  "$rootFiles": ["main", "deno", "deno.lock", "package", "tsconfig", "README", ".gitignore"],
 
   "src": {
     "bootstrap": {
@@ -31,6 +32,7 @@
       "mod-root": "Public API — only external import surface",
       "domain": {
         "business": {
+          "poly-mod": "Polymorphic surface — exports interchangeable implementations",
           "<feature>": {
             "mod": "Pure logic — no I/O, no side effects",
             "test": "Unit tests"

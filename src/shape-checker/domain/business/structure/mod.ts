@@ -3,6 +3,7 @@ import type { PipelineContext, EntryTarget } from "../../../../core/dto/types.ts
 
 const FORBIDDEN_DIRS = new Set((SHAPE as Record<string, unknown>)["$forbiddenDirNames"] as string[]);
 const LOOSE_NAMES = new Set((SHAPE as Record<string, unknown>)["$looseFileNames"] as string[]);
+const ROOT_FILES = new Set(((SHAPE as Record<string, unknown>)["$rootFiles"] as string[]) ?? []);
 
 type ShapeNode = Record<string, unknown>;
 
@@ -93,14 +94,29 @@ export async function check(
     return violations.length > 0 ? violations : null;
   }
 
-  if (!path.includes("/")) return null;
+  const baseName = name.replace(/\.[^.]+$/, "");
+
+  // Root-level files: check against $rootFiles allowlist
+  if (segments.length === 1) {
+    if (ROOT_FILES.has(baseName) || ROOT_FILES.has(name)) return null;
+    return ["not-allowed"];
+  }
 
   const parentSegs = segments.slice(0, -1);
   const parentNode = resolveNode(parentSegs);
   if (parentNode === null) return ["not-allowed"];
 
-  const baseName = name.replace(/\.[^.]+$/, "");
   if (LOOSE_NAMES.has(baseName)) return [`loose:${baseName}`];
+
+  // Check if the parent actually expects files here
+  const hasFileEntry = Object.entries(parentNode).some(
+    ([k, v]) => typeof v === "string" && !k.startsWith("$"),
+  );
+  const hasDescriptorFile = Object.keys(parentNode).some(
+    (k) => k.startsWith("<") && k.endsWith(">") && typeof parentNode[k] === "string",
+  );
+
+  if (!hasFileEntry && !hasDescriptorFile) return ["not-allowed"];
 
   return null;
 }
