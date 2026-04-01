@@ -693,5 +693,12 @@
   },
   "remote": {
     "https://gist.githubusercontent.com/theTechGoose/68c8429d1564b36e02350df472a2bdd8/raw/claude-bot.ts": "6d1b9c0142255ddc4b8c22f0b5010477b5bda5daed1144f6cdfbc58b40b48fc7"
+  },
+  "workspace": {
+    "dependencies": [
+      "jsr:@std/assert@*",
+      "jsr:@std/path@*",
+      "npm:zod@*"
+    ]
   }
 }

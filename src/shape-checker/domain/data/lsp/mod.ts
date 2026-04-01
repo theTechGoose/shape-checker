@@ -1,11 +1,11 @@
-import { join } from "jsr:@std/path";
+import { join } from "#std/path";
 import type {
   ExportInfo,
   Location,
   Diagnostic,
   LspConfig,
   LspCapabilities,
-} from "../../../../core/dto/types.ts";
+} from "@core/dto/types.ts";
 
 // deno-lint-ignore no-explicit-any
 type ServerCapabilities = Record<string, any>;
@@ -153,8 +153,6 @@ export class Lsp {
       }
     }
 
-    const { uri } = await this.openDoc(relPath);
-    await this.closeDoc(uri);
     return exports;
   }
 
@@ -178,27 +176,29 @@ export class Lsp {
   async getSymbolType(relPath: string, symbolName: string): Promise<string | null> {
     if (!this.capabilities.hover) return null;
 
-    const pos = await this.findSymbolPosition(relPath, symbolName);
-    if (!pos) return null;
+    try {
+      const pos = await this.findSymbolPosition(relPath, symbolName);
+      if (!pos) return null;
 
-    const result = await this.request("textDocument/hover", {
-      textDocument: { uri: pos.uri },
-      position: { line: pos.line, character: pos.character },
-    // deno-lint-ignore no-explicit-any
-    }) as any | null;
+      const result = await this.request("textDocument/hover", {
+        textDocument: { uri: pos.uri },
+        position: { line: pos.line, character: pos.character },
+      // deno-lint-ignore no-explicit-any
+      }) as any | null;
 
-    await this.closeDoc(pos.uri);
+      if (!result?.contents) return null;
 
-    if (!result?.contents) return null;
-
-    if (typeof result.contents === "string") return result.contents;
-    if (result.contents.value) return result.contents.value;
-    if (Array.isArray(result.contents)) {
-      return result.contents
-        .map((c: string | { value: string }) => typeof c === "string" ? c : c.value)
-        .join("\n");
+      if (typeof result.contents === "string") return result.contents;
+      if (result.contents.value) return result.contents.value;
+      if (Array.isArray(result.contents)) {
+        return result.contents
+          .map((c: string | { value: string }) => typeof c === "string" ? c : c.value)
+          .join("\n");
+      }
+      return null;
+    } catch {
+      return null;
     }
-    return null;
   }
 
   async findSymbolReferences(relPath: string, symbolName: string): Promise<Location[]> {
@@ -212,8 +212,6 @@ export class Lsp {
       position: { line: pos.line, character: pos.character },
       context: { includeDeclaration: false },
     }) as Array<{ uri: string; range: { start: { line: number; character: number } } }> | null;
-
-    await this.closeDoc(pos.uri);
 
     if (!result || !Array.isArray(result)) return [];
 
@@ -235,8 +233,6 @@ export class Lsp {
       position: { line: pos.line, character: pos.character },
     }) as Array<{ uri: string; range: { start: { line: number; character: number } } }> | null;
 
-    await this.closeDoc(pos.uri);
-
     if (!result || !Array.isArray(result)) return [];
 
     return result.map((r) => ({
@@ -257,8 +253,6 @@ export class Lsp {
       position: { line: pos.line, character: pos.character },
     // deno-lint-ignore no-explicit-any
     }) as any;
-
-    await this.closeDoc(pos.uri);
 
     if (!result) return [];
 
@@ -286,12 +280,10 @@ export class Lsp {
       // deno-lint-ignore no-explicit-any
       }) as { items?: any[] } | null;
 
-      await this.closeDoc(uri);
       if (!result?.items) return [];
       return result.items.map(parseDiagnostic);
     }
 
-    await this.closeDoc(uri);
     return [];
   }
 
@@ -323,11 +315,18 @@ export class Lsp {
 
   // -- JSON-RPC transport --
 
-  private async request(method: string, params: unknown): Promise<unknown> {
+  private async request(method: string, params: unknown, timeoutMs = 10_000): Promise<unknown> {
     const id = ++this.requestId;
     const msg = JSON.stringify({ jsonrpc: "2.0", id, method, params });
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`LSP ${method} timed out`));
+      }, timeoutMs);
+      this.pending.set(id, {
+        resolve: (v: unknown) => { clearTimeout(timer); resolve(v); },
+        reject: (e: Error) => { clearTimeout(timer); reject(e); },
+      });
       this.send(msg);
     });
   }

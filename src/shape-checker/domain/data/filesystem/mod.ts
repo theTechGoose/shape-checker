@@ -1,5 +1,5 @@
-import { join, dirname, normalize } from "jsr:@std/path";
-import type { PipelineContext } from "../../../../core/dto/types.ts";
+import { join, dirname, normalize } from "#std/path";
+import type { PipelineContext } from "@core/dto/types.ts";
 
 const SKIP = new Set([".git", "node_modules"]);
 

@@ -1,4 +1,4 @@
-import { assert } from "jsr:@std/assert";
+import { assert } from "#std/assert";
 import { buildContext } from "./mod.ts";
 
 Deno.test("buildContext — reads current directory", async () => {

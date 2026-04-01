@@ -1,10 +1,10 @@
-import { buildContext } from "../../data/filesystem/mod.ts";
-import { quickQuery } from "../../data/llm/mod.ts";
-import { Lsp } from "../../data/lsp/mod.ts";
-import { LSP_CONFIG } from "../../../../core/dto/lsp-config.ts";
-import { extname } from "jsr:@std/path";
-import type { EntryResult } from "../../../../core/dto/types.ts";
-import type { RuleDefinition } from "../../business/poly-mod.ts";
+import { buildContext } from "@shape-checker/domain/data/filesystem/mod.ts";
+import { quickQuery } from "@shape-checker/domain/data/llm/mod.ts";
+import { Lsp } from "@shape-checker/domain/data/lsp/mod.ts";
+import { LSP_CONFIG } from "@core/dto/lsp-config.ts";
+import { extname } from "#std/path";
+import type { EntryResult } from "@core/dto/types.ts";
+import type { RuleDefinition } from "@core/dto/types.ts";
 
 export async function runPipeline(
   targetDir: string,
@@ -28,6 +28,7 @@ export async function runPipeline(
       target: extname(p).slice(1) || "unknown",
     })),
   ];
+
 
   const results: EntryResult[] = [];
 

@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "jsr:@std/assert";
+import { assert, assertEquals } from "#std/assert";
 import { Lsp } from "./mod.ts";
 
 const LSP_CONFIG = {

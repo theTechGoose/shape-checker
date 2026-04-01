@@ -1,7 +1,16 @@
 {
   "tasks": {
-    "check": "deno run --allow-read --allow-net --allow-env --allow-run main.ts",
-    "compile": "deno run --allow-read --allow-run --allow-write build.ts"
+    "check": "deno run --allow-read --allow-net --allow-env --allow-run src/bootstrap/mod.ts",
+    "compile": "deno run --allow-read --allow-run --allow-write src/bootstrap/config.ts && deno compile --allow-read --allow-net --allow-env --allow-run -o dist/shape-checker src/bootstrap/mod.ts"
+  },
+  "imports": {
+    "@/": "./src/",
+    "@core/": "./src/core/",
+    "@shape-checker/": "./src/shape-checker/",
+    "@assets/": "./assets/",
+    "#zod": "npm:zod",
+    "#std/assert": "jsr:@std/assert",
+    "#std/path": "jsr:@std/path"
   },
   "compilerOptions": { "strict": true }
 }

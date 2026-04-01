@@ -1,5 +1,5 @@
-import { resolve } from "jsr:@std/path";
-import { rules, runPipeline, parseArgs, printUsage, printHeader, printResults } from "../shape-checker/mod-root.ts";
+import { resolve } from "#std/path";
+import { rules, runPipeline, parseArgs, printUsage, printHeader, printResults } from "@shape-checker/mod-root.ts";
 
 const { targetDir: rawDir, llmMode } = parseArgs(Deno.args);
 

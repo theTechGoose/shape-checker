@@ -1,4 +1,4 @@
-import { z } from "npm:zod";
+import { z } from "#zod";
 
 export type EntryTarget = string | "folder";
 
@@ -79,4 +79,12 @@ export interface EntryResult {
   rule: string;
   violations: string[];
   suggestion?: string;
+}
+
+export interface RuleDefinition {
+  name: string;
+  description: string;
+  check(path: string, target: EntryTarget, ctx: PipelineContext): Promise<string[] | null>;
+  systemPrompt: string;
+  buildPrompt(violations: string[], path: string, target: EntryTarget): string;
 }

@@ -1,4 +1,4 @@
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "#std/assert";
 import { classifyFile, getModuleFromPath, getLayerFromPath, isModRootImport } from "./mod.ts";
 
 Deno.test("classifyFile — bootstrap file", () => {

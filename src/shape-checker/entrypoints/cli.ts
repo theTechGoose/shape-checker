@@ -1,4 +1,4 @@
-import type { EntryResult } from "../../core/dto/types.ts";
+import type { EntryResult } from "@core/dto/types.ts";
 
 const RED = "\x1b[31m";
 const YELLOW = "\x1b[33m";

@@ -1,6 +1,6 @@
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "#std/assert";
 import { runPipeline } from "./mod.ts";
-import type { RuleDefinition } from "../../business/poly-mod.ts";
+import type { RuleDefinition } from "@core/dto/types.ts";
 
 Deno.test("runPipeline — no violations on empty rule set", async () => {
   const rules: RuleDefinition[] = [];

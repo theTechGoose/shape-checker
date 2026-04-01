@@ -1,0 +1,106 @@
+{
+  "$forbiddenDirNames": ["lib", "modules", "internal"],
+  "$looseFileNames": ["utils", "helpers", "common", "shared", "util", "helper"],
+  "$rootFiles": ["deno", "deno.lock", "README", ".gitignore"],
+
+  "src": {
+    "bootstrap": {
+      "$desc": "Composition root — wires modules, starts the app",
+      "mod": "Application entry and wiring",
+      "config": "Environment and configuration loading"
+    },
+    "core": {
+      "$desc": "Shared across all modules — importable anywhere",
+      "business": {
+        "<feature>": [
+          {
+            "mod": "Pure logic — no I/O, no side effects",
+            "test": "Unit tests"
+          },
+          {
+            "base": {
+              "mod": "Base implementation — shared across all variants",
+              "test": "Tests for the base implementation"
+            },
+            "implementations": {
+              "<variant-name>": {
+                "mod": "Variant-specific implementation",
+                "test": "Tests for this variant"
+              }
+            },
+            "poly-mod": "Barrel export for the active implementation"
+          }
+        ]
+      },
+      "data": {
+        "<service>": {
+          "mod": "Adapter for an external system",
+          "smk.test": "Smoke test — verifies connectivity"
+        }
+      },
+      "dto": {
+        "<name>": "Shape definition with validation"
+      }
+    },
+    "<module-name>": {
+      "$desc": "Isolated module — imports only from core or itself",
+      "mod-root": "Public API — only external import surface",
+      "domain": {
+        "business": {
+          "<feature>": [
+            {
+              "mod": "Pure logic — no I/O, no side effects",
+              "test": "Unit tests"
+            },
+            {
+              "base": {
+                "mod": "Base implementation — shared across all variants",
+                "test": "Tests for the base implementation"
+              },
+              "implementations": {
+                "<variant-name>": {
+                  "mod": "Variant-specific implementation",
+                  "test": "Tests for this variant"
+                }
+              },
+              "poly-mod": "Barrel export for the active implementation"
+            }
+          ]
+        },
+        "data": {
+          "<service>": {
+            "mod": "Adapter for an external system",
+            "smk.test": "Smoke test — verifies connectivity"
+          }
+        },
+        "coordinators": {
+          "<process>": {
+            "mod": "Orchestrates business + data into a workflow",
+            "int.test": "Integration test"
+          }
+        }
+      },
+      "entrypoints": {
+        "<name>": "Inbound API — controllers, pages"
+      },
+      "dto": {
+        "<name>": "Shape definition with validation"
+      }
+    }
+  },
+  "fixtures": {
+    "<category>": {
+      "<name>": "Test fixtures — predefined data for tests"
+    }
+  },
+  "e2e": {
+    "<feature>": "End-to-end tests — test the entire system from the outside in"
+  },
+  "assets": {
+    "<name>": "Static assets — images, styles, etc."
+  },
+  "dist": {
+    "$desc": "Compiled output — not source-controlled",
+    "$ignore": "*"
+  }
+}
