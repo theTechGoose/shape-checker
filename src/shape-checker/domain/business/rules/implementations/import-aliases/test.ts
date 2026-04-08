@@ -19,7 +19,8 @@ Deno.test("flags dotdot imports", async () => {
   });
   const result = await check("src/mod/domain/foo.ts", "ts", ctx);
   assertEquals(result !== null, true);
-  assertEquals(result![0], "dotdot-import:../../core/dto/types.ts");
+  assertEquals(result![0].includes("../"), true);
+  assertEquals(result![0].includes("@ alias"), true);
 });
 
 Deno.test("allows alias imports", async () => {

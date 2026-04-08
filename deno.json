@@ -1,7 +1,7 @@
 {
   "tasks": {
     "check": "deno run --allow-read --allow-net --allow-env --allow-run src/bootstrap/mod.ts",
-    "compile": "deno run --allow-read --allow-run --allow-write src/bootstrap/config.ts && deno compile --allow-read --allow-net --allow-env --allow-run -o dist/shape-checker src/bootstrap/mod.ts"
+    "compile": "deno run --allow-read --allow-run --allow-write src/bootstrap/config.ts && deno compile --allow-read --allow-net --allow-env --allow-run -o dist/shape-checker src/bootstrap/mod.ts && cp dist/shape-checker /Users/raphaelcastro/.claude/skills/133t/scripts/shape-checker && xattr -cr /Users/raphaelcastro/.claude/skills/133t/scripts/shape-checker && codesign -s - /Users/raphaelcastro/.claude/skills/133t/scripts/shape-checker"
   },
   "imports": {
     "@/": "./src/",

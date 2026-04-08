@@ -378,7 +378,10 @@ export class Lsp {
 
       try {
         const msg = JSON.parse(body);
-        if ("id" in msg && this.pending.has(msg.id)) {
+        if ("method" in msg && "id" in msg) {
+          // Server-to-client request — respond immediately so the server doesn't block
+          this.send(JSON.stringify({ jsonrpc: "2.0", id: msg.id, result: null }));
+        } else if ("id" in msg && this.pending.has(msg.id)) {
           const { resolve, reject } = this.pending.get(msg.id)!;
           this.pending.delete(msg.id);
           if (msg.error) {

@@ -17,7 +17,7 @@ export async function check(
 
   const content = await ctx.getFileContent(path);
 
-  if (BARREL_RE.test(content)) return ["barrel-in-wrong-place"];
+  if (BARREL_RE.test(content)) return ["Re-exports (barrel pattern) are only allowed in mod-root.ts, poly-mod.ts, and bootstrap files"];
 
   return null;
 }

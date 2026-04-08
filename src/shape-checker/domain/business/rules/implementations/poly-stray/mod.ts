@@ -90,7 +90,7 @@ export async function check(
       if (overlap.length >= 2) {
         const standaloneName = standalone.split("/").pop()!;
         const polyName = polyDir.split("/").pop()!;
-        violations.push(`stray:${standaloneName}:belongs-in:${polyName}`);
+        violations.push(`"${standaloneName}" looks like it belongs inside the "${polyName}" poly structure — it shares the same exports`);
       }
     }
   }

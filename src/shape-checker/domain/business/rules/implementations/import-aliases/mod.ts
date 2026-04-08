@@ -18,7 +18,7 @@ export async function check(
   for (const m of content.matchAll(importRe)) {
     const spec = m[1] ?? m[2];
     if (spec && spec.includes("..")) {
-      violations.push(`dotdot-import:${spec}`);
+      violations.push(`"../" import is not allowed — use an @ alias instead (${spec})`);
     }
   }
 

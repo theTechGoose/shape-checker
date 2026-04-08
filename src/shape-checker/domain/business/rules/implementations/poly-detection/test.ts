@@ -94,7 +94,7 @@ Deno.test("check — flags 3+ siblings with same exports and compatible types", 
   };
   const result = await check("src/orders/domain/business", "folder", ctx);
   assertEquals(result !== null, true);
-  assertEquals(result![0].startsWith("missing-poly-mod:"), true);
+  assertEquals(result![0].includes("poly structure"), true);
 });
 
 Deno.test("check — does not flag when exports differ across siblings", async () => {

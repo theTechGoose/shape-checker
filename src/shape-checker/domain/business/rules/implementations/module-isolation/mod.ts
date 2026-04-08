@@ -28,9 +28,9 @@ export async function check(
     if (!targetModule || targetModule === source.module || targetModule === "core") continue;
 
     if (source.isBootstrap && !isModRootImport(imp)) {
-      violations.push(`bootstrap-not-modroot:${targetModule}:${imp}`);
+      violations.push(`Bootstrap imports "${targetModule}" but not through its mod-root — use the mod-root public API instead (${imp})`);
     } else if (!source.isBootstrap) {
-      violations.push(`cross-module:${source.module}→${targetModule}:${imp}`);
+      violations.push(`Cross-module import from "${source.module}" into "${targetModule}" is forbidden — extract shared code to core/ instead (${imp})`);
     }
   }
 
@@ -53,12 +53,12 @@ export async function check(
           if (!resolvedModule || resolvedModule === source.module || resolvedModule === "core") continue;
 
           if (source.isBootstrap && !isModRootImport(resolvedPath)) {
-            const v = `bootstrap-not-modroot:${resolvedModule}:${imp}(resolved:${resolvedPath})`;
+            const v = `Bootstrap imports "${resolvedModule}" but not through its mod-root — re-export "${exp.name}" resolves to ${resolvedPath}`;
             if (!violations.some((e) => e.includes(resolvedPath))) {
               violations.push(v);
             }
           } else if (!source.isBootstrap) {
-            const v = `cross-module:${source.module}→${resolvedModule}:${imp}(resolved:${resolvedPath})`;
+            const v = `Hidden cross-module leak: "${exp.name}" from ${imp} actually comes from "${resolvedModule}" (${resolvedPath})`;
             if (!violations.some((e) => e.includes(resolvedPath))) {
               violations.push(v);
             }

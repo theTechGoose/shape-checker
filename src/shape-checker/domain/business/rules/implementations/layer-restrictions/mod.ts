@@ -38,12 +38,13 @@ export async function check(
     if (!imp.startsWith("src/")) continue;
     const targetLayer = getLayerFromPath(imp);
     if (targetLayer !== "unknown" && !allowed.has(targetLayer)) {
-      violations.push(`${classification.layer}→${targetLayer}:${imp}`);
+      violations.push(`The "${classification.layer}" layer cannot import from "${targetLayer}" — ${imp}`);
     }
   }
 
   // LSP enhancement: trace through re-exports to find hidden layer violations
-  if (ctx.lsp?.capabilities.definition) {
+  // Only run when basic check found violations (indicates cross-layer imports exist)
+  if (violations.length > 0 && ctx.lsp?.capabilities.definition) {
     for (const imp of imports) {
       if (!imp.startsWith("src/")) continue;
       let exports;
@@ -56,7 +57,7 @@ export async function check(
           if (!resolvedPath) continue;
           const resolvedLayer = getLayerFromPath(resolvedPath);
           if (resolvedLayer !== "unknown" && !allowed.has(resolvedLayer)) {
-            const v = `${classification.layer}→${resolvedLayer}:${imp}(resolved:${resolvedPath})`;
+            const v = `Hidden layer violation: "${exp.name}" from ${imp} actually comes from the "${resolvedLayer}" layer (${resolvedPath})`;
             if (!violations.some((e) => e.includes(resolvedPath))) {
               violations.push(v);
             }

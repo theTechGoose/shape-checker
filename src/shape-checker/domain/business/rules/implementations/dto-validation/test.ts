@@ -25,7 +25,7 @@ Deno.test("check — flags dto without validation", async () => {
     lsp: null,
   };
   const result = await check("src/orders/dto/foo.ts", "ts", ctx);
-  assertEquals(result, ["no-validation"]);
+  assertEquals(result![0].includes("missing runtime validation"), true);
 });
 
 Deno.test("check — passes dto with zod schema", async () => {

@@ -43,7 +43,7 @@ Deno.test("flags standalone that matches poly implementations", async () => {
   const result = await check("src/mymod/domain/business", "folder", ctx);
   assertEquals(result !== null, true, "should flag stray");
   assertEquals(result!.length, 1);
-  assertEquals(result![0], "stray:stray:belongs-in:rules");
+  assertEquals(result![0].includes("belongs inside"), true);
 });
 
 Deno.test("does not flag unrelated standalone", async () => {

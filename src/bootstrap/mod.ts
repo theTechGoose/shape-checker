@@ -1,17 +1,38 @@
-import { resolve } from "#std/path";
-import { rules, runPipeline, parseArgs, printUsage, printHeader, printResults } from "@shape-checker/mod-root.ts";
+import { resolve, join } from "#std/path";
+import { rules, runPipeline, parseArgs, printHeader, printResults } from "@shape-checker/mod-root.ts";
+import { findGitRoot, readWorkspaceMembers, getIgnoredPaths } from "@shape-checker/domain/data/project/mod.ts";
+import type { EntryResult } from "@core/dto/types.ts";
 
-const { targetDir: rawDir, llmMode } = parseArgs(Deno.args);
+console.log("hello world");
 
-if (!rawDir) {
-  printUsage();
-  Deno.exit(2);
+const { llmMode } = parseArgs(Deno.args);
+
+const gitRoot = await findGitRoot();
+const members = await readWorkspaceMembers(gitRoot);
+const ignoredPaths = await getIgnoredPaths(gitRoot);
+
+const allResults: EntryResult[] = [];
+
+if (members) {
+  for (const member of members) {
+    const memberDir = resolve(join(gitRoot, member));
+    const prefix = member + "/";
+    const memberIgnored = new Set<string>();
+    for (const p of ignoredPaths) {
+      if (p.startsWith(prefix)) {
+        memberIgnored.add(p.slice(prefix.length));
+      }
+    }
+    printHeader(memberDir, llmMode);
+    const results = await runPipeline(memberDir, rules, llmMode, memberIgnored);
+    allResults.push(...results);
+  }
+} else {
+  printHeader(gitRoot, llmMode);
+  const results = await runPipeline(gitRoot, rules, llmMode, ignoredPaths);
+  allResults.push(...results);
 }
 
-const targetDir = resolve(rawDir);
-printHeader(targetDir, llmMode);
+printResults(allResults);
 
-const results = await runPipeline(targetDir, rules, llmMode);
-printResults(results);
-
-Deno.exit(results.length > 0 ? 1 : 0);
+Deno.exit(allResults.length > 0 ? 1 : 0);

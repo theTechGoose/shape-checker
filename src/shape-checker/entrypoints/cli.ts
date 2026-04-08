@@ -6,15 +6,9 @@ const CYAN = "\x1b[36m";
 const BOLD = "\x1b[1m";
 const RESET = "\x1b[0m";
 
-export function parseArgs(args: string[]): { targetDir: string | null; llmMode: boolean } {
+export function parseArgs(args: string[]): { llmMode: boolean } {
   const llmMode = args.includes("--llm");
-  const positional = args.filter((a) => !a.startsWith("--"));
-  return { targetDir: positional[0] ?? null, llmMode };
-}
-
-export function printUsage(): void {
-  console.error("Usage: shape-checker <path-to-project> [--llm]");
-  console.error("  --llm  Generate AI-powered fix suggestions (requires claude CLI)");
+  return { llmMode };
 }
 
 export function printHeader(targetDir: string, llmMode: boolean): void {

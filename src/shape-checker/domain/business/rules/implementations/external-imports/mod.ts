@@ -19,7 +19,7 @@ export async function check(
     const spec = m[1] ?? m[2];
     if (!spec) continue;
     if (spec.startsWith("npm:") || spec.startsWith("jsr:")) {
-      violations.push(`bare-external:${spec}`);
+      violations.push(`Direct "${spec}" import is not allowed — add a # alias in deno.json and import via the alias instead`);
     }
   }
 

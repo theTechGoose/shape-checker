@@ -8,24 +8,26 @@ async function walkDir(
   prefix: string,
   files: string[],
   dirs: string[],
+  ignored: Set<string>,
 ): Promise<void> {
   const base = prefix ? join(root, prefix) : root;
   for await (const entry of Deno.readDir(base)) {
     if (SKIP.has(entry.name) || entry.name.startsWith(".")) continue;
     const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (ignored.has(rel)) continue;
     if (entry.isDirectory) {
       dirs.push(rel);
-      await walkDir(root, rel, files, dirs);
+      await walkDir(root, rel, files, dirs, ignored);
     } else if (entry.isFile) {
       files.push(rel);
     }
   }
 }
 
-export async function buildContext(targetDir: string): Promise<PipelineContext> {
+export async function buildContext(targetDir: string, ignored: Set<string>): Promise<PipelineContext> {
   const files: string[] = [];
   const dirs: string[] = [];
-  await walkDir(targetDir, "", files, dirs);
+  await walkDir(targetDir, "", files, dirs, ignored);
 
   const contentCache = new Map<string, string>();
 

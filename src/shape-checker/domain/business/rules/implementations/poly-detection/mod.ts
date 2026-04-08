@@ -53,7 +53,7 @@ export async function check(
 
   if (confirmed.length === 0) return null;
 
-  return [`missing-poly-mod:${confirmed.join(",")}`];
+  return [`3+ sibling features export "${confirmed.join('", "')}" with compatible signatures — extract into a poly structure with poly-mod.ts`];
 }
 
 function areSignaturesCompatible(signatures: string[]): boolean {

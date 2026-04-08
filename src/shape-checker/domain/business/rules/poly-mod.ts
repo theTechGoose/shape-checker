@@ -8,3 +8,5 @@ export * as polyStray from "./implementations/poly-stray/mod.ts";
 export * as structure from "./implementations/structure/mod.ts";
 export * as importAliases from "./implementations/import-aliases/mod.ts";
 export * as externalImports from "./implementations/external-imports/mod.ts";
+export * as fixturePromotion from "./implementations/fixture-promotion/mod.ts";
+export * as moduleFragmentation from "./implementations/module-fragmentation/mod.ts";

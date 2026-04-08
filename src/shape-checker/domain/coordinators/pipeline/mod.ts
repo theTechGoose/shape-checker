@@ -10,8 +10,12 @@ export async function runPipeline(
   targetDir: string,
   rules: RuleDefinition[],
   llmMode: boolean,
+  ignored: Set<string> = new Set(),
 ): Promise<EntryResult[]> {
-  const ctx = await buildContext(targetDir);
+  const t0 = performance.now();
+  const ctx = await buildContext(targetDir, ignored);
+  const tCtx = performance.now();
+  console.error(`  [profile] buildContext: ${(tCtx - t0).toFixed(0)}ms (${ctx.files.length} files, ${ctx.dirs.length} dirs)`);
 
   const lsp = new Lsp(targetDir, LSP_CONFIG);
   try {
@@ -20,6 +24,8 @@ export async function runPipeline(
   } catch {
     ctx.lsp = null;
   }
+  const tLsp = performance.now();
+  console.error(`  [profile] LSP init: ${(tLsp - tCtx).toFixed(0)}ms (${ctx.lsp ? "connected" : "failed"})`);
 
   const entries = [
     ...ctx.dirs.map((p) => ({ path: p, target: "folder" as const })),
@@ -29,13 +35,15 @@ export async function runPipeline(
     })),
   ];
 
-
   const results: EntryResult[] = [];
+  const ruleTimes = new Map<string, number>();
 
   try {
     for (const entry of entries) {
       for (const rule of rules) {
+        const rStart = performance.now();
         const violations = await rule.check(entry.path, entry.target, ctx);
+        ruleTimes.set(rule.name, (ruleTimes.get(rule.name) ?? 0) + (performance.now() - rStart));
         if (violations !== null) {
           let suggestion: string | undefined;
           if (llmMode) {
@@ -56,7 +64,15 @@ export async function runPipeline(
       }
     }
   } finally {
+    const tShutStart = performance.now();
     await lsp.shutdown();
+    const tEnd = performance.now();
+    console.error(`  [profile] LSP shutdown: ${(tEnd - tShutStart).toFixed(0)}ms`);
+    console.error(`  [profile] Rules (${entries.length} entries):`);
+    for (const [name, ms] of [...ruleTimes.entries()].sort((a, b) => b[1] - a[1])) {
+      console.error(`    ${name}: ${ms.toFixed(0)}ms`);
+    }
+    console.error(`  [profile] Total: ${(tEnd - t0).toFixed(0)}ms`);
   }
 
   return results;

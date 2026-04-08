@@ -19,7 +19,8 @@ Deno.test("flags npm: imports", async () => {
   });
   const result = await check("src/foo.ts", "ts", ctx);
   assertEquals(result !== null, true);
-  assertEquals(result![0], "bare-external:npm:zod");
+  assertEquals(result![0].includes("npm:zod"), true);
+  assertEquals(result![0].includes("# alias"), true);
 });
 
 Deno.test("flags jsr: imports", async () => {
@@ -28,7 +29,7 @@ Deno.test("flags jsr: imports", async () => {
   });
   const result = await check("src/foo.ts", "ts", ctx);
   assertEquals(result !== null, true);
-  assertEquals(result![0], "bare-external:jsr:@std/path");
+  assertEquals(result![0].includes("jsr:@std/path"), true);
 });
 
 Deno.test("allows # aliased imports", async () => {

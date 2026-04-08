@@ -114,7 +114,7 @@ export function resolveNode(
 export function getRequiredFiles(node: ShapeNode): string[] {
   return Object.keys(node).filter(
     (k) =>
-      typeof node[k] === "string" && !k.startsWith("$") && !k.startsWith("<"),
+      typeof node[k] === "string" && !k.startsWith("$") && !k.startsWith("<") && !k.endsWith("?"),
   );
 }
 
@@ -136,7 +136,7 @@ export function getExpectedAt(node: ShapeNode): {
       continue;
     }
     if (typeof v === "object") folders.push(k);
-    else if (typeof v === "string") files.push({ name: k, desc: v });
+    else if (typeof v === "string") files.push({ name: k.endsWith("?") ? k.slice(0, -1) : k, desc: v });
   }
 
   return { desc, folders, files, descriptor };
@@ -161,11 +161,11 @@ export async function check(
     const node = resolveNode(segments, ctx);
     const violations: string[] = [];
 
-    if (node === null) violations.push("not-allowed");
-    if (FORBIDDEN_DIRS.has(name)) violations.push(`forbidden:${name}`);
+    if (node === null) violations.push("This folder is not allowed by the project structure spec");
+    if (FORBIDDEN_DIRS.has(name)) violations.push(`"${name}" is a forbidden directory name — use a more specific name`);
     if (name === "core" && path !== "src/core")
-      violations.push("forbidden:core");
-    if (LOOSE_NAMES.has(name)) violations.push(`loose:${name}`);
+      violations.push("Only src/core can be named \"core\" — rename this folder");
+    if (LOOSE_NAMES.has(name)) violations.push(`"${name}" is a loose/vague name — use a more specific name`);
 
     if (node !== null) {
       const required = getRequiredFiles(node);
@@ -178,7 +178,7 @@ export async function check(
               .pop()
               ?.replace(/\.[^.]+$/, "") === key,
         );
-        if (!found) violations.push(`missing-file:${key}`);
+        if (!found) violations.push(`Missing required file "${key}" in this folder`);
       }
     }
 
@@ -186,21 +186,22 @@ export async function check(
   }
 
   const baseName = name.replace(/\.[^.]+$/, "");
+  const ext = name.includes(".") ? name.slice(name.lastIndexOf(".")) : "";
 
   // Root-level files: check against $rootFiles allowlist
   if (segments.length === 1) {
     if (ROOT_FILES.has(baseName) || ROOT_FILES.has(name)) return null;
-    return ["not-allowed"];
+    return ["This file is not allowed at the project root"];
   }
 
   const parentSegs = segments.slice(0, -1);
   const parentNode = resolveNode(parentSegs, ctx);
-  if (parentNode === null) return ["not-allowed"];
+  if (parentNode === null) return ["This file is not allowed here by the project structure spec"];
 
   // $ignore: "*" means all children are allowed
   if (parentNode["$ignore"] === "*") return null;
 
-  if (LOOSE_NAMES.has(baseName)) return [`loose:${baseName}`];
+  if (LOOSE_NAMES.has(baseName)) return [`"${baseName}" is a loose/vague name — use a more specific name`];
 
   // Check if this specific file is allowed by the parent node
   const matchesFixed = Object.entries(parentNode).some(
@@ -208,17 +209,29 @@ export async function check(
       typeof v === "string" &&
       !k.startsWith("$") &&
       !k.startsWith("<") &&
-      k === baseName,
+      (k === baseName || (k.endsWith("?") && k.slice(0, -1) === baseName)),
   );
-  if (matchesFixed) return null;
+  if (matchesFixed) {
+    const allowedExts = parentNode["$extensions"] as string[] | undefined;
+    if (allowedExts && !allowedExts.includes(ext)) {
+      return [`Wrong file extension "${ext}" — only ${allowedExts.join(", ")} files are allowed here`];
+    }
+    return null;
+  }
 
   const matchesDescriptor = Object.keys(parentNode).some(
     (k) =>
       k.startsWith("<") && k.endsWith(">") && typeof parentNode[k] === "string",
   );
-  if (matchesDescriptor) return null;
+  if (matchesDescriptor) {
+    const allowedExts = parentNode["$extensions"] as string[] | undefined;
+    if (allowedExts && !allowedExts.includes(ext)) {
+      return [`Wrong file extension "${ext}" — only ${allowedExts.join(", ")} files are allowed here`];
+    }
+    return null;
+  }
 
-  return ["not-allowed"];
+  return ["This file is not allowed here by the project structure spec"];
 }
 
 export const SYSTEM_PROMPT = `You are a code architecture advisor. The project follows a hexagonal/modular architecture defined in a canonical-paths.json spec. Given structural violations for a file or folder, produce a concise, actionable fix suggestion (2-3 sentences max). Reference the spec's expected structure when relevant.`;

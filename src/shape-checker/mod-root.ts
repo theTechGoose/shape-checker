@@ -1,5 +1,5 @@
 export { runPipeline } from "./domain/coordinators/pipeline/mod.ts";
-export { parseArgs, printUsage, printHeader, printResults } from "./entrypoints/cli.ts";
+export { parseArgs, printHeader, printResults } from "./entrypoints/cli.ts";
 export type { RuleDefinition } from "@core/dto/types.ts";
 
 import type { RuleDefinition } from "@core/dto/types.ts";
@@ -15,6 +15,8 @@ import {
   structure,
   importAliases,
   externalImports,
+  fixturePromotion,
+  moduleFragmentation,
 } from "./domain/business/rules/poly-mod.ts";
 
 export const rules: RuleDefinition[] = [
@@ -28,4 +30,6 @@ export const rules: RuleDefinition[] = [
   { name: "poly-stray", description: "Detects standalone features that belong inside an existing poly structure", check: polyStray.check, systemPrompt: polyStray.SYSTEM_PROMPT, buildPrompt: polyStray.buildPrompt },
   { name: "import-aliases", description: "Bans ../ imports — requires @ aliases instead", check: importAliases.check, systemPrompt: importAliases.SYSTEM_PROMPT, buildPrompt: importAliases.buildPrompt },
   { name: "external-imports", description: "Bans bare npm:/jsr: — requires # aliases from import map", check: externalImports.check, systemPrompt: externalImports.SYSTEM_PROMPT, buildPrompt: externalImports.buildPrompt },
+  { name: "fixture-promotion", description: "Flags fixtures imported by mod/bootstrap files — should be assets instead", check: fixturePromotion.check, systemPrompt: fixturePromotion.SYSTEM_PROMPT, buildPrompt: fixturePromotion.buildPrompt },
+  { name: "module-fragmentation", description: "Detects overly fragmented modules that should be consolidated", check: moduleFragmentation.check, systemPrompt: moduleFragmentation.SYSTEM_PROMPT, buildPrompt: moduleFragmentation.buildPrompt },
 ];

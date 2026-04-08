@@ -11,11 +11,18 @@ const VALIDATION_PATTERNS = [
   /\.refine\s*\(/,
   /\bType\.\w+/,
   /\bv\.\w+\(/,
+  /@Is\w+\(/,
+  /@Valid\w*\(/,
+  /@Transform\(/,
+  /\bplainToInstance\b/,
+  /\binstanceToPlain\b/,
+  /\bclassToPlain\b/,
+  /\bplainToClass\b/,
 ];
 
 function isTypeOnlyExport(kind: string, typeStr: string): boolean {
   if (kind === "Interface") return true;
-  if (typeStr.startsWith("type ") && !typeStr.includes("z.infer")) return true;
+  if (typeStr.startsWith("type ")) return true;
   return false;
 }
 
@@ -32,12 +39,14 @@ export async function check(
 
   const hasValidationPattern = VALIDATION_PATTERNS.some((p) => p.test(content));
 
-  if (!hasValidationPattern) return ["no-validation"];
+  if (hasValidationPattern) return null;
 
-  // LSP enhancement: verify exports aren't ALL type-only despite regex match
+  // No regex match — use LSP to check if file only exports types (which is OK)
   if (ctx.lsp) {
     let exports;
-    try { exports = await ctx.lsp.getExportTypes(path); } catch { return null; }
+    try { exports = await ctx.lsp.getExportTypes(path); } catch {
+      return ["DTO file is missing runtime validation — add class-validator decorators or equivalent runtime checks"];
+    }
 
     if (exports.length === 0) return null;
 
@@ -51,10 +60,10 @@ export async function check(
       }
     }
 
-    if (allTypeOnly) return ["type-only-exports"];
+    if (allTypeOnly) return null;
   }
 
-  return null;
+  return ["DTO file is missing runtime validation — add class-validator decorators or equivalent runtime checks"];
 }
 
 export const SYSTEM_PROMPT = `You are a code architecture advisor enforcing DTO validation rules.

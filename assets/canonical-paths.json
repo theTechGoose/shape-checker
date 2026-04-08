@@ -1,7 +1,7 @@
 {
   "$forbiddenDirNames": ["lib", "modules", "internal"],
   "$looseFileNames": ["utils", "helpers", "common", "shared", "util", "helper"],
-  "$rootFiles": ["deno", "deno.lock", "README", ".gitignore"],
+  "$rootFiles": ["deno", "deno.lock", "README", ".gitignore", "TODOS"],
 
   "src": {
     "bootstrap": {
@@ -14,6 +14,8 @@
       "business": {
         "<feature>": [
           {
+            "template?": "Template for new Ui features",
+            "styles?": "Shared styles for new Ui features",
             "mod": "Pure logic — no I/O, no side effects",
             "test": "Unit tests"
           },
@@ -49,6 +51,8 @@
         "business": {
           "<feature>": [
             {
+              "template?": "Template for new Ui features",
+              "styles?": "Shared styles for new Ui features",
               "mod": "Pure logic — no I/O, no side effects",
               "test": "Unit tests"
             },
@@ -75,13 +79,19 @@
         },
         "coordinators": {
           "<process>": {
+            "template?": "Template for new Ui features",
+            "styles?": "Shared styles for new Ui features",
             "mod": "Orchestrates business + data into a workflow",
             "int.test": "Integration test"
           }
         }
       },
       "entrypoints": {
-        "<name>": "Inbound API — controllers, pages"
+        "<name>": {
+          "template?": "Template for new Ui features",
+          "styles?": "Shared styles for new Ui features",
+          "mod": "Exposes functionality to the outside world"
+        }
       },
       "dto": {
         "<name>": "Shape definition with validation"
@@ -90,7 +100,8 @@
   },
   "fixtures": {
     "<category>": {
-      "<name>": "Test fixtures — predefined data for tests"
+      "$extensions": [".json"],
+      "<name>": "Test fixtures — predefined data for tests, snapshots etc..."
     }
   },
   "e2e": {

@@ -30,7 +30,7 @@ export async function check(
         imp.startsWith(poly.dir + "/") &&
         imp.split("/").pop()?.replace(/\.[^.]+$/, "") !== "poly-mod"
       ) {
-        violations.push(`bypass:${poly.polyModPath}:${imp}`);
+        violations.push(`Importing directly from inside a poly structure — use ${poly.polyModPath} instead of ${imp}`);
       }
     }
   }
@@ -53,7 +53,7 @@ export async function check(
             const resolvedPath = uriToRelPath(def.uri, ctx.targetDir);
             if (!resolvedPath) continue;
             if (!resolvedPath.startsWith(poly.dir + "/") && resolvedPath !== poly.polyModPath) {
-              violations.push(`leak:${poly.polyModPath}:${exp.name}→${resolvedPath}`);
+              violations.push(`Poly-mod leak: "${exp.name}" in ${poly.polyModPath} resolves to ${resolvedPath} which is outside the poly structure`);
             }
           }
         }
