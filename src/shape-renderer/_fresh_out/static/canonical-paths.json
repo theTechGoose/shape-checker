@@ -1,24 +1,8 @@
 {
-  "$forbiddenDirNames": [
-    "lib",
-    "modules",
-    "internal"
-  ],
-  "$looseFileNames": [
-    "utils",
-    "helpers",
-    "common",
-    "shared",
-    "util",
-    "helper"
-  ],
-  "$rootFiles": [
-    "deno",
-    "deno.lock",
-    "README",
-    ".gitignore",
-    "TODOS"
-  ],
+  "$forbiddenDirNames": ["lib", "modules", "internal"],
+  "$looseFileNames": ["utils", "helpers", "common", "shared", "util", "helper"],
+  "$rootFiles": ["deno", "deno.lock", "README", ".gitignore", "TODOS"],
+
   "src": {
     "bootstrap": {
       "$desc": "Composition root — wires modules, starts the app",
@@ -116,9 +100,7 @@
   },
   "fixtures": {
     "<category>": {
-      "$extensions": [
-        ".json"
-      ],
+      "$extensions": [".json"],
       "<name>": "Test fixtures — predefined data for tests, snapshots etc..."
     }
   },

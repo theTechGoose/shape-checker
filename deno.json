@@ -1,12 +1,14 @@
 {
   "tasks": {
     "check": "deno run --allow-read --allow-net --allow-env --allow-run src/bootstrap/mod.ts",
-    "compile": "deno run --allow-read --allow-run --allow-write src/bootstrap/config.ts && deno compile --allow-read --allow-net --allow-env --allow-run -o dist/shape-checker src/bootstrap/mod.ts && cp dist/shape-checker /Users/raphaelcastro/.claude/skills/133t/scripts/shape-checker && xattr -cr /Users/raphaelcastro/.claude/skills/133t/scripts/shape-checker && codesign -s - /Users/raphaelcastro/.claude/skills/133t/scripts/shape-checker"
+    "compile": "deno run --allow-read --allow-run --allow-write src/bootstrap/config.ts && deno compile --allow-read --allow-net --allow-env --allow-run -o dist/shape-checker src/bootstrap/mod.ts && cp dist/shape-checker /Users/raphaelcastro/.claude/skills/133t/scripts/shape-checker && xattr -cr /Users/raphaelcastro/.claude/skills/133t/scripts/shape-checker && codesign -s - /Users/raphaelcastro/.claude/skills/133t/scripts/shape-checker",
+    "dev:renderer": "deno run -A /Users/raphaelcastro/Documents/programming/sprig/projects/cli/src/bootstrap/mod.ts _internal dev src/shape-renderer"
   },
   "imports": {
     "@/": "./src/",
     "@core/": "./src/core/",
     "@shape-checker/": "./src/shape-checker/",
+    "@shape-renderer/": "./src/shape-renderer/",
     "@assets/": "./assets/",
     "#zod": "npm:zod",
     "#std/assert": "jsr:@std/assert",
