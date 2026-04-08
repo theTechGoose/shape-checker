@@ -5,9 +5,9 @@ import type { EntryResult } from "@core/dto/types.ts";
 
 console.log("hello world");
 
-const { llmMode } = parseArgs(Deno.args);
+const { dir } = parseArgs(Deno.args);
 
-const gitRoot = await findGitRoot();
+const gitRoot = dir ? resolve(dir) : await findGitRoot();
 const members = await readWorkspaceMembers(gitRoot);
 const ignoredPaths = await getIgnoredPaths(gitRoot);
 
@@ -23,13 +23,13 @@ if (members) {
         memberIgnored.add(p.slice(prefix.length));
       }
     }
-    printHeader(memberDir, llmMode);
-    const results = await runPipeline(memberDir, rules, llmMode, memberIgnored);
+    printHeader(memberDir);
+    const results = await runPipeline(memberDir, rules, memberIgnored);
     allResults.push(...results);
   }
 } else {
-  printHeader(gitRoot, llmMode);
-  const results = await runPipeline(gitRoot, rules, llmMode, ignoredPaths);
+  printHeader(gitRoot);
+  const results = await runPipeline(gitRoot, rules, ignoredPaths);
   allResults.push(...results);
 }
 

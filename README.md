@@ -9,10 +9,10 @@ deno task compile
 
 If there are violations, fix them. Run again until you get `All clear — no violations found.`
 
-For AI-powered fix suggestions (requires `claude` CLI on PATH):
+To check a specific directory:
 
 ```sh
-./dist/shape-checker . --llm
+./dist/shape-checker --dir path/to/dir
 ```
 
 ## What This Does

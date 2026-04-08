@@ -6,14 +6,14 @@ const CYAN = "\x1b[36m";
 const BOLD = "\x1b[1m";
 const RESET = "\x1b[0m";
 
-export function parseArgs(args: string[]): { llmMode: boolean } {
-  const llmMode = args.includes("--llm");
-  return { llmMode };
+export function parseArgs(args: string[]): { dir: string | null } {
+  const dirIndex = args.indexOf("--dir");
+  const dir = dirIndex !== -1 && args[dirIndex + 1] ? args[dirIndex + 1] : null;
+  return { dir };
 }
 
-export function printHeader(targetDir: string, llmMode: boolean): void {
+export function printHeader(targetDir: string): void {
   console.log(`${BOLD}Scanning ${targetDir}...${RESET}`);
-  if (llmMode) console.log(`${CYAN}LLM suggestions enabled${RESET}`);
   console.log();
 }
 

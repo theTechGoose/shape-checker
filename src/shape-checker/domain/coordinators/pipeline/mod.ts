@@ -1,5 +1,4 @@
 import { buildContext } from "@shape-checker/domain/data/filesystem/mod.ts";
-import { quickQuery } from "@shape-checker/domain/data/llm/mod.ts";
 import { Lsp } from "@shape-checker/domain/data/lsp/mod.ts";
 import { LSP_CONFIG } from "@core/dto/lsp-config.ts";
 import { extname } from "#std/path";
@@ -9,7 +8,6 @@ import type { RuleDefinition } from "@core/dto/types.ts";
 export async function runPipeline(
   targetDir: string,
   rules: RuleDefinition[],
-  llmMode: boolean,
   ignored: Set<string> = new Set(),
 ): Promise<EntryResult[]> {
   const t0 = performance.now();
@@ -45,20 +43,11 @@ export async function runPipeline(
         const violations = await rule.check(entry.path, entry.target, ctx);
         ruleTimes.set(rule.name, (ruleTimes.get(rule.name) ?? 0) + (performance.now() - rStart));
         if (violations !== null) {
-          let suggestion: string | undefined;
-          if (llmMode) {
-            const prompt = rule.buildPrompt(violations, entry.path, entry.target);
-            suggestion = await quickQuery(prompt, {
-              systemPrompt: rule.systemPrompt,
-              model: "claude-haiku-4-5-20251001",
-            });
-          }
           results.push({
             path: entry.path,
             target: entry.target,
             rule: rule.name,
             violations,
-            suggestion,
           });
         }
       }
