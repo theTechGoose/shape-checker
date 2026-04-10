@@ -1,8 +1,11 @@
 {
   "tasks": {
+    "setup": "deno run --allow-read --allow-run --allow-write src/bootstrap/config.ts && deno run --allow-read --allow-write scripts/gen-shape-docs.ts",
     "check": "deno run --allow-read --allow-net --allow-env --allow-run src/bootstrap/mod.ts",
-    "compile": "deno run --allow-read --allow-run --allow-write src/bootstrap/config.ts && deno compile --allow-read --allow-net --allow-env --allow-run -o dist/shape-checker src/bootstrap/mod.ts && cp dist/shape-checker /Users/raphaelcastro/.claude/skills/133t/scripts/shape-checker && xattr -cr /Users/raphaelcastro/.claude/skills/133t/scripts/shape-checker && codesign -s - /Users/raphaelcastro/.claude/skills/133t/scripts/shape-checker",
-    "dev:renderer": "deno run -A /Users/raphaelcastro/Documents/programming/sprig/projects/cli/src/bootstrap/mod.ts _internal dev src/shape-renderer"
+    "compile": "deno task setup && deno compile --allow-read --allow-net --allow-env --allow-run -o dist/shape-checker src/bootstrap/mod.ts",
+    "install": "deno task compile && cp dist/shape-checker ~/.deno/bin/shape-checker",
+    "deploy": "test -n \"$SHAPE_DEPLOY_DIR\" || { echo 'Error: set SHAPE_DEPLOY_DIR env var'; exit 1; } && cp dist/shape-checker \"$SHAPE_DEPLOY_DIR/shape-checker\" && xattr -cr \"$SHAPE_DEPLOY_DIR/shape-checker\" && codesign -s - \"$SHAPE_DEPLOY_DIR/shape-checker\"",
+    "dev:renderer": "deno run -A \"$SPRIG_CLI\" _internal dev src/shape-renderer"
   },
   "imports": {
     "@/": "./src/",

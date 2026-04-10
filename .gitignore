@@ -1,2 +1,4 @@
 /shape-checker
+dist/
 src/core/dto/lsp-config.ts
+src/shape-renderer/_fresh_out/

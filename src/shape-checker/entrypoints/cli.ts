@@ -6,10 +6,18 @@ const CYAN = "\x1b[36m";
 const BOLD = "\x1b[1m";
 const RESET = "\x1b[0m";
 
-export function parseArgs(args: string[]): { dir: string | null } {
-  const dirIndex = args.indexOf("--dir");
-  const dir = dirIndex !== -1 && args[dirIndex + 1] ? args[dirIndex + 1] : null;
-  return { dir };
+export function parseArgs(args: string[]): { dir: string; module: string | null; suggest: boolean } {
+  const suggest = !args.includes("--no-suggest");
+
+  const moduleIndex = args.indexOf("--module");
+  const module = moduleIndex !== -1 && args[moduleIndex + 1] ? args[moduleIndex + 1] : null;
+
+  // First positional arg (not a flag or flag value) as dir
+  const flagValues = new Set<number>();
+  if (moduleIndex !== -1) flagValues.add(moduleIndex + 1);
+  const positional = args.find((a, i) => !a.startsWith("--") && !flagValues.has(i));
+
+  return { dir: positional ?? ".", module, suggest };
 }
 
 export function printHeader(targetDir: string): void {

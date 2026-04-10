@@ -1,134 +1,207 @@
 {
-  "$forbiddenDirNames": [
-    "lib",
-    "modules",
-    "internal"
-  ],
-  "$looseFileNames": [
-    "utils",
-    "helpers",
-    "common",
-    "shared",
-    "util",
-    "helper"
-  ],
-  "$rootFiles": [
-    "deno",
-    "deno.lock",
-    "README",
-    ".gitignore",
-    "TODOS"
-  ],
-  "src": {
-    "bootstrap": {
-      "$desc": "Composition root — wires modules, starts the app",
-      "mod": "Application entry and wiring",
-      "config": "Environment and configuration loading"
-    },
-    "core": {
-      "$desc": "Shared across all modules — importable anywhere",
-      "business": {
-        "<feature>": [
+  "$forbiddenDirNames": ["lib", "modules", "internal"],
+  "$looseFileNames": ["utils", "helpers", "common", "shared", "util", "helper"],
+  "$rootFiles": ["deno", "deno.lock", "README", ".gitignore", "TODOS"],
+
+  "bootstrap/": {
+    "$desc": "Composition root — wires modules, starts the app",
+    "mod": { "ext": [".ts"], "desc": "app entry point and module wiring" },
+    "config": {
+      "ext": [".ts"],
+      "desc": "environment and configuration loading"
+    }
+  },
+  "src/": {
+    "core/": {
+      "$desc": "Shared kernel — importable from any module",
+      "business/": {
+        "<feature>/": [
           {
-            "template?": "Template for new Ui features",
-            "styles?": "Shared styles for new Ui features",
-            "mod": "Pure logic — no I/O, no side effects",
-            "test": "Unit tests"
+            "template": {
+              "ext": [".html"],
+              "desc": "HTML template for UI rendering",
+              "optional": true
+            },
+            "styles": {
+              "ext": [".css"],
+              "desc": "scoped styles for this feature",
+              "optional": true
+            },
+            "mod": {
+              "ext": [".ts"],
+              "desc": "pure logic, no I/O or side effects"
+            },
+            "test": { "ext": [".ts"], "desc": "unit tests for the sibling mod" }
           },
           {
-            "base": {
-              "mod": "Base implementation — shared across all variants",
-              "test": "Tests for the base implementation"
-            },
-            "implementations": {
-              "<variant-name>": {
-                "mod": "Variant-specific implementation",
-                "test": "Tests for this variant"
+            "base/": {
+              "mod": {
+                "ext": [".ts"],
+                "desc": "shared base implementation across variants"
+              },
+              "test": {
+                "ext": [".ts"],
+                "desc": "tests for the base implementation"
               }
             },
-            "poly-mod": "Barrel export for the active implementation"
+            "implementations/": {
+              "<variant-name>/": {
+                "mod": {
+                  "ext": [".ts"],
+                  "desc": "variant-specific implementation"
+                },
+                "test": { "ext": [".ts"], "desc": "tests for this variant" }
+              }
+            },
+            "poly-mod": {
+              "ext": [".ts"],
+              "desc": "barrel re-export for the active variant"
+            }
           }
         ]
       },
-      "data": {
-        "<service>": {
-          "mod": "Adapter for an external system",
-          "smk.test": "Smoke test — verifies connectivity"
+      "data/": {
+        "<service>/": {
+          "mod": { "ext": [".ts"], "desc": "adapter for an external system" },
+          "smk.test": {
+            "ext": [".ts"],
+            "desc": "smoke test, verifies connectivity"
+          }
         }
       },
-      "dto": {
-        "<name>": "Shape definition with validation"
+      "dto/": {
+        "<name>": { "ext": [".ts"], "desc": "Zod schema and type definition" }
       }
     },
-    "<module-name>": {
+    "<module-name>/": {
       "$desc": "Isolated module — imports only from core or itself",
-      "mod-root": "Public API — only external import surface",
-      "domain": {
-        "business": {
-          "<feature>": [
+      "mod-root": {
+        "ext": [".ts"],
+        "desc": "public API, only external import surface"
+      },
+      "domain/": {
+        "business/": {
+          "<feature>/": [
             {
-              "template?": "Template for new Ui features",
-              "styles?": "Shared styles for new Ui features",
-              "mod": "Pure logic — no I/O, no side effects",
-              "test": "Unit tests"
+              "template": {
+                "ext": [".html", ".tsx"],
+                "desc": "HTML template for UI rendering",
+                "optional": true
+              },
+              "styles": {
+                "ext": [".css"],
+                "desc": "scoped styles for this feature",
+                "optional": true
+              },
+              "mod": {
+                "ext": [".ts"],
+                "desc": "pure logic, no I/O or side effects"
+              },
+              "test": {
+                "ext": [".ts"],
+                "desc": "unit tests for the sibling mod"
+              }
             },
             {
-              "base": {
-                "mod": "Base implementation — shared across all variants",
-                "test": "Tests for the base implementation"
-              },
-              "implementations": {
-                "<variant-name>": {
-                  "mod": "Variant-specific implementation",
-                  "test": "Tests for this variant"
+              "base/": {
+                "mod": {
+                  "ext": [".ts"],
+                  "desc": "shared base implementation across variants"
+                },
+                "test": {
+                  "ext": [".ts"],
+                  "desc": "tests for the base implementation"
                 }
               },
-              "poly-mod": "Barrel export for the active implementation"
+              "implementations/": {
+                "<variant-name>/": {
+                  "mod": {
+                    "ext": [".ts"],
+                    "desc": "variant-specific implementation"
+                  },
+                  "test": { "ext": [".ts"], "desc": "tests for this variant" }
+                }
+              },
+              "poly-mod": {
+                "ext": [".ts"],
+                "desc": "barrel re-export for the active variant"
+              }
             }
           ]
         },
-        "data": {
-          "<service>": {
-            "mod": "Adapter for an external system",
-            "smk.test": "Smoke test — verifies connectivity"
+        "data/": {
+          "<service>/": {
+            "mod": { "ext": [".ts"], "desc": "adapter for an external system" },
+            "smk.test": {
+              "ext": [".ts"],
+              "desc": "smoke test, verifies connectivity"
+            }
           }
         },
-        "coordinators": {
-          "<process>": {
-            "template?": "Template for new Ui features",
-            "styles?": "Shared styles for new Ui features",
-            "mod": "Orchestrates business + data into a workflow",
-            "int.test": "Integration test"
+        "coordinators/": {
+          "<process>/": {
+            "template": {
+              "ext": [".html", ".tsx"],
+              "desc": "HTML template for UI rendering",
+              "optional": true
+            },
+            "styles": {
+              "ext": [".css"],
+              "desc": "scoped styles",
+              "optional": true
+            },
+            "mod": {
+              "ext": [".ts"],
+              "desc": "orchestrates business + data layers"
+            },
+            "int.test": {
+              "ext": [".ts"],
+              "desc": "integration test for the workflow"
+            }
           }
         }
       },
-      "entrypoints": {
-        "<name>": {
-          "template?": "Template for new Ui features",
-          "styles?": "Shared styles for new Ui features",
-          "mod": "Exposes functionality to the outside world"
+      "entrypoints/": {
+        "<name>/": {
+          "template": {
+            "ext": [".html", ".tsx"],
+            "desc": "HTML template for UI rendering",
+            "optional": true
+          },
+          "styles": {
+            "ext": [".css"],
+            "desc": "scoped styles",
+            "optional": true
+          },
+          "mod": {
+            "ext": [".ts"],
+            "desc": "exposes functionality to the outside world"
+          },
+          "e2e.test": {
+            "ext": [".ts"],
+            "desc": "cypress end-to-end tests for this entry point"
+          }
         }
       },
-      "dto": {
-        "<name>": "Shape definition with validation"
+      "dto/": {
+        "<name>": {
+          "ext": [".ts"],
+          "desc": "class validator and class transformer type definition"
+        }
       }
     }
   },
-  "fixtures": {
-    "<category>": {
-      "$extensions": [
-        ".json"
-      ],
-      "<name>": "Test fixtures — predefined data for tests, snapshots etc..."
+  "fixtures/": {
+    "<category>/": {
+      "$ignore": "*"
     }
   },
-  "e2e": {
-    "<feature>": "End-to-end tests — test the entire system from the outside in"
+  "assets/": {
+    "<category>/": {
+      "<name>": "static asset"
+    }
   },
-  "assets": {
-    "<name>": "Static assets — images, styles, etc."
-  },
-  "dist": {
+  "dist/": {
     "$desc": "Compiled output — not source-controlled",
     "$ignore": "*"
   }

@@ -14,7 +14,7 @@ function makeCtx(files: string[], dirs: string[]): PipelineContext {
 }
 
 Deno.test("resolveNode — valid path", () => {
-  const node = resolveNode(["src", "bootstrap"]);
+  const node = resolveNode(["bootstrap"]);
   assertEquals(node !== null, true);
 });
 
@@ -23,82 +23,52 @@ Deno.test("resolveNode — invalid path", () => {
   assertEquals(node, null);
 });
 
-Deno.test("getRequiredFiles — bootstrap", () => {
-  const node = resolveNode(["src", "bootstrap"]);
+Deno.test("getRequiredFiles — bootstrap has mod and config", () => {
+  const node = resolveNode(["bootstrap"]);
   const required = getRequiredFiles(node!);
   assertEquals(required.includes("mod"), true);
   assertEquals(required.includes("config"), true);
 });
 
+Deno.test("getRequiredFiles — excludes optional files", () => {
+  const node = resolveNode(["bootstrap"]);
+  const required = getRequiredFiles(node!);
+  // bootstrap has no optional files, so length should be 2
+  assertEquals(required.length, 2);
+});
+
 Deno.test("getExpectedAt — returns structure info", () => {
-  const node = resolveNode(["src", "bootstrap"]);
+  const node = resolveNode(["bootstrap"]);
   const expected = getExpectedAt(node!);
   assertEquals(typeof expected.desc, "string");
 });
 
-Deno.test("feature folder with only mod.ts (no test.ts) should be flagged", async () => {
-  // Simulate a feature folder that only has mod.ts — no test.ts
-  // This should NOT match variant 1 (requires mod+test) or variant 2 (requires base+implementations+poly-mod)
+Deno.test("check — bootstrap folder with required files passes", async () => {
   const ctx = makeCtx(
-    ["src/mymod/domain/business/myfeat/mod.ts"],
-    [
-      "src",
-      "src/mymod",
-      "src/mymod/domain",
-      "src/mymod/domain/business",
-      "src/mymod/domain/business/myfeat",
-    ],
+    ["bootstrap/mod.ts", "bootstrap/config.ts"],
+    ["bootstrap"],
   );
-
-  const node = resolveNode(
-    ["src", "mymod", "domain", "business", "myfeat"],
-    ctx,
-  );
-  console.log("resolveNode for myfeat:", JSON.stringify(node));
-
-  const result = await check(
-    "src/mymod/domain/business/myfeat",
-    "folder",
-    ctx,
-  );
-  console.log("check result for myfeat folder:", JSON.stringify(result));
-
-  assertEquals(result !== null, true, "feature folder with only mod.ts should be flagged — doesn't match any variant");
-});
-
-Deno.test("getRequiredFiles — excludes keys ending with ?", () => {
-  const node = { "mod": "required", "config?": "optional", "$desc": "test" } as Record<string, unknown>;
-  const required = getRequiredFiles(node);
-  assertEquals(required.includes("mod"), true);
-  assertEquals(required.includes("config?"), false);
-  assertEquals(required.includes("config"), false);
-});
-
-Deno.test("check — folder with optional file present has no missing-file violation", async () => {
-  const ctx = makeCtx(
-    ["src/bootstrap/mod.ts", "src/bootstrap/config.ts", "src/bootstrap/env.ts"],
-    ["src", "src/bootstrap"],
-  );
-  const result = await check("src/bootstrap", "folder", ctx);
+  const result = await check("bootstrap", "folder", ctx);
   assertEquals(result, null);
 });
 
-Deno.test("check — folder with optional file absent has no missing-file violation", async () => {
+Deno.test("check — file with correct extension passes", async () => {
   const ctx = makeCtx(
-    ["src/bootstrap/mod.ts", "src/bootstrap/config.ts"],
-    ["src", "src/bootstrap"],
+    ["bootstrap/mod.ts", "bootstrap/config.ts"],
+    ["bootstrap"],
   );
-  const result = await check("src/bootstrap", "folder", ctx);
+  const result = await check("bootstrap/mod.ts", "ts", ctx);
   assertEquals(result, null);
 });
 
-Deno.test("check — file matching optional key is not flagged as not-allowed", async () => {
+Deno.test("check — file with wrong extension is flagged", async () => {
   const ctx = makeCtx(
-    ["src/mymod/domain/coordinators/myproc/mod.ts", "src/mymod/domain/coordinators/myproc/template.ts"],
-    ["src", "src/mymod", "src/mymod/domain", "src/mymod/domain/coordinators", "src/mymod/domain/coordinators/myproc"],
+    ["bootstrap/mod.js", "bootstrap/config.ts"],
+    ["bootstrap"],
   );
-  const result = await check("src/mymod/domain/coordinators/myproc/template.ts", "ts", ctx);
-  assertEquals(result, null);
+  const result = await check("bootstrap/mod.js", "js", ctx);
+  assertEquals(result !== null, true);
+  assertEquals(result![0].includes("Wrong extension"), true);
 });
 
 Deno.test("check — fixture .json file is allowed", async () => {
@@ -110,21 +80,63 @@ Deno.test("check — fixture .json file is allowed", async () => {
   assertEquals(result, null);
 });
 
-Deno.test("check — fixture non-.json file is flagged with wrong-extension", async () => {
+Deno.test("check — fixture allows any file (ignore)", async () => {
   const ctx = makeCtx(
     ["fixtures/seeds/users.ts"],
     ["fixtures", "fixtures/seeds"],
   );
   const result = await check("fixtures/seeds/users.ts", "ts", ctx);
-  assertEquals(result !== null, true);
-  assertEquals(result![0].includes("Wrong file extension"), true);
+  assertEquals(result, null);
 });
 
-Deno.test("getExpectedAt — strips ? from file names", () => {
-  const node = { "mod": "required file", "config?": "optional file", "$desc": "test" } as Record<string, unknown>;
-  const expected = getExpectedAt(node);
-  const names = expected.files.map((f) => f.name);
-  assertEquals(names.includes("mod"), true);
-  assertEquals(names.includes("config"), true);
-  assertEquals(names.includes("config?"), false);
+Deno.test("check — dto .ts file is allowed", async () => {
+  const ctx = makeCtx(
+    ["src/core/dto/types.ts"],
+    ["src", "src/core", "src/core/dto"],
+  );
+  const result = await check("src/core/dto/types.ts", "ts", ctx);
+  assertEquals(result, null);
+});
+
+Deno.test("check — assets file with any extension passes", async () => {
+  const ctx = makeCtx(
+    ["assets/images/logo.png"],
+    ["assets", "assets/images"],
+  );
+  const result = await check("assets/images/logo.png", "png", ctx);
+  assertEquals(result, null);
+});
+
+Deno.test("check — optional file present passes", async () => {
+  const ctx = makeCtx(
+    ["src/mymod/entrypoints/home/mod.ts", "src/mymod/entrypoints/home/template.html"],
+    ["src", "src/mymod", "src/mymod/entrypoints", "src/mymod/entrypoints/home"],
+  );
+  const result = await check("src/mymod/entrypoints/home/template.html", "html", ctx);
+  assertEquals(result, null);
+});
+
+Deno.test("check — optional file with wrong extension is flagged", async () => {
+  const ctx = makeCtx(
+    ["src/mymod/entrypoints/home/mod.ts", "src/mymod/entrypoints/home/template.ts"],
+    ["src", "src/mymod", "src/mymod/entrypoints", "src/mymod/entrypoints/home"],
+  );
+  const result = await check("src/mymod/entrypoints/home/template.ts", "ts", ctx);
+  assertEquals(result !== null, true);
+  assertEquals(result![0].includes("Wrong extension"), true);
+});
+
+Deno.test("check — feature folder with only mod.ts (no test.ts) should be flagged", async () => {
+  const ctx = makeCtx(
+    ["src/mymod/domain/business/myfeat/mod.ts"],
+    [
+      "src",
+      "src/mymod",
+      "src/mymod/domain",
+      "src/mymod/domain/business",
+      "src/mymod/domain/business/myfeat",
+    ],
+  );
+  const result = await check("src/mymod/domain/business/myfeat", "folder", ctx);
+  assertEquals(result !== null, true, "feature folder with only mod.ts should be flagged");
 });
